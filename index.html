@@ -423,6 +423,9 @@
             <button class="btn btn-primary" onclick="toggleAddForm()">
                 ➕ <span class="hide-mobile">Yeni Ekle</span>
             </button>
+            <button class="btn btn-secondary" onclick="exportData()">
+                📥 <span class="hide-mobile">Dışa Aktar</span>
+            </button>
         </div>
         
         <div class="add-form" id="addForm">
@@ -460,6 +463,10 @@
             <span>Takıldı</span>
         </div>
         <span class="hide-mobile" style="color: #64748b;">|</span>
+        <label class="btn btn-warning" style="font-size: 11px; padding: 6px 10px; cursor: pointer;">
+    📤 İçe Aktar (.json)
+    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+</label>
         <span class="hide-mobile" style="color: #64748b;">💡 Boş alan → Harita kaydır | Panel → Taşı</span>
     </div>
 
@@ -766,6 +773,57 @@
         });
 
         loadData();
+
+        function exportData() {
+            if (panels.length === 0) {
+                alert('Dışa aktarılacak panel verisi yok.');
+                return;
+            }
+            // Mevcut panel verisini [cite: 90] JSON metnine çevir
+            const dataStr = JSON.stringify(panels, null, 2);
+            // Bir dosya olarak indirmek için sanal bir link oluştur
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'panel-verisi.json'; // İndirilecek dosyanın adı
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!confirm('Mevcut tüm paneller silinecek ve bu dosyadan yenileri yüklenecek. Emin misiniz?')) {
+                // Input'u sıfırla ki aynı dosyayı tekrar seçebilsin
+                event.target.value = null;
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedPanels = JSON.parse(e.target.result);
+                    if (Array.isArray(importedPanels)) {
+                        panels = importedPanels; // Panelleri içe aktarılanla değiştir [cite: 90]
+                        saveData(); // Yeni veriyi localStorage'a kaydet 
+                        render();   // Ekranı yenile [cite: 100, 129]
+                        alert('Veri başarıyla içe aktarıldı!');
+                    } else {
+                        alert('Dosya formatı geçersiz. Lütfen .json dosyası seçin.');
+                    }
+                } catch (error) {
+                    alert('Dosya okunurken bir hata oluştu: ' + error.message);
+                }
+                // Input'u sıfırla
+                event.target.value = null;
+            };
+            reader.readAsText(file);
+        }
+        
     </script>
 </body>
 </html>
