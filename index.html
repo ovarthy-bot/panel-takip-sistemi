@@ -16,7 +16,6 @@
             background: #1a1a2e;
             color: #fff;
             overflow: hidden;
-            touch-action: none;
         }
 
         .header {
@@ -29,6 +28,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 10px;
         }
 
         .header h1 {
@@ -51,6 +51,47 @@
             .header .stats {
                 font-size: 14px;
             }
+        }
+
+        .pages-bar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            overflow-x: auto;
+            padding: 8px 0;
+            margin-top: 10px;
+        }
+
+        .page-tab {
+            padding: 8px 16px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .page-tab:hover {
+            background: #1e293b;
+        }
+
+        .page-tab.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .page-tab .delete-page {
+            color: #ef4444;
+            font-weight: bold;
+            padding: 0 4px;
+        }
+
+        .page-tab .delete-page:hover {
+            color: #dc2626;
         }
 
         .btn {
@@ -169,16 +210,11 @@
         }
 
         .canvas-container {
-            height: calc(100vh - 180px);
+            height: calc(100vh - 240px);
             position: relative;
             overflow: auto;
             background: #0f172a;
-            cursor: grab;
             -webkit-overflow-scrolling: touch;
-        }
-
-        .canvas-container:active {
-            cursor: grabbing;
         }
 
         .canvas-inner {
@@ -193,19 +229,19 @@
 
         .panel {
             position: absolute;
-            cursor: grab;
+            cursor: move;
             user-select: none;
             transition: box-shadow 0.2s;
-            touch-action: none;
-        }
-
-        .panel:active {
-            cursor: grabbing;
         }
 
         .panel.selected {
             box-shadow: 0 0 0 3px #3b82f6;
             z-index: 1000;
+        }
+
+        .panel.dragging {
+            opacity: 0.8;
+            z-index: 1001;
         }
 
         .panel-shape {
@@ -218,6 +254,8 @@
             font-size: 11px;
             border: 2px solid;
             transition: all 0.3s;
+            position: relative;
+            pointer-events: none;
         }
 
         .panel-shape.rectangle {
@@ -241,6 +279,22 @@
         .panel-shape.installed {
             background: #22c55e;
             border-color: #16a34a;
+        }
+
+        .panel-note-indicator {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #eab308;
+            color: #000;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
         }
 
         .panel-controls {
@@ -310,6 +364,8 @@
             border-radius: 12px;
             width: 100%;
             max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
 
@@ -402,14 +458,10 @@
             }
         }
 
-        .hide-desktop {
-            display: inline;
-        }
-
-        @media (min-width: 768px) {
-            .hide-desktop {
-                display: none;
-            }
+        textarea.form-input {
+            min-height: 80px;
+            resize: vertical;
+            font-family: inherit;
         }
     </style>
 </head>
@@ -420,13 +472,20 @@
                 <h1>Panel Takip</h1>
                 <div class="stats" id="stats">Takılı: 0 / 0 (0%)</div>
             </div>
-            <button class="btn btn-primary" onclick="toggleAddForm()">
-                ➕ <span class="hide-mobile">Yeni Ekle</span>
-            </button>
-            <button class="btn btn-secondary" onclick="exportData()">
-                📥 <span class="hide-mobile">Dışa Aktar</span>
-            </button>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-primary" onclick="toggleAddForm()">
+                    ➕ <span class="hide-mobile">Yeni Panel</span>
+                </button>
+                <button class="btn btn-success" onclick="addNewPage()">
+                    📄 <span class="hide-mobile">Yeni Sayfa</span>
+                </button>
+                <button class="btn btn-secondary" onclick="exportData()">
+                    📥 <span class="hide-mobile">Dışa Aktar</span>
+                </button>
+            </div>
         </div>
+
+        <div class="pages-bar" id="pagesBar"></div>
         
         <div class="add-form" id="addForm">
             <div class="form-row">
@@ -435,8 +494,8 @@
                     <option value="rectangle">Dikdörtgen</option>
                     <option value="circle">Daire</option>
                 </select>
-                <input type="number" class="form-input" id="newWidth" placeholder="Genişlik" value="80">
-                <input type="number" class="form-input" id="newHeight" placeholder="Yükseklik" value="50">
+                <input type="number" class="form-input" id="newWidth" placeholder="Genişlik" value="50">
+                <input type="number" class="form-input" id="newHeight" placeholder="Yükseklik" value="80">
             </div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-success" style="flex: 1;" onclick="addPanel()">💾 Ekle</button>
@@ -464,10 +523,9 @@
         </div>
         <span class="hide-mobile" style="color: #64748b;">|</span>
         <label class="btn btn-warning" style="font-size: 11px; padding: 6px 10px; cursor: pointer;">
-    📤 İçe Aktar (.json)
-    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
-</label>
-        <span class="hide-mobile" style="color: #64748b;">💡 Boş alan → Harita kaydır | Panel → Taşı</span>
+            📤 İçe Aktar
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+        </label>
     </div>
 
     <!-- Edit Modal -->
@@ -495,6 +553,10 @@
                     <input type="number" class="form-input" id="editHeight" style="width: 100%;">
                 </div>
             </div>
+            <div class="form-group">
+                <label class="form-label">Not</label>
+                <textarea class="form-input" id="editNote" style="width: 100%;" placeholder="Bu panel hakkında notlar..."></textarea>
+            </div>
             <div class="modal-actions">
                 <button class="btn btn-success" style="flex: 1;" onclick="saveEdit()">💾 Kaydet</button>
                 <button class="btn btn-secondary" style="flex: 1;" onclick="closeEditModal()">✖ İptal</button>
@@ -502,49 +564,155 @@
         </div>
     </div>
 
+    <!-- Page Edit Modal -->
+    <div class="modal" id="pageEditModal">
+        <div class="modal-content">
+            <div class="modal-header">Sayfa Adını Düzenle</div>
+            <div class="form-group">
+                <label class="form-label">Sayfa Adı</label>
+                <input type="text" class="form-input" id="pageEditName" style="width: 100%;">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-success" style="flex: 1;" onclick="savePageName()">💾 Kaydet</button>
+                <button class="btn btn-secondary" style="flex: 1;" onclick="closePageEditModal()">✖ İptal</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        let panels = [];
+        let pages = [];
+        let currentPageId = null;
         let selectedPanelId = null;
         let editingPanelId = null;
+        let editingPageId = null;
         let draggedPanel = null;
         let dragOffset = { x: 0, y: 0 };
-        let isDraggingViewport = false;
-        let viewportDragStart = { x: 0, y: 0 };
+        let touchStartTime = 0;
+        let canvasScrollLeft = 0;
+        let canvasScrollTop = 0;
 
-        // LocalStorage'dan verileri yükle
         function loadData() {
             const saved = localStorage.getItem('panelData');
             if (saved) {
-                panels = JSON.parse(saved);
-                // Eski verileri yeni formata dönüştür
-                panels = panels.map(panel => {
-                    if (panel.installed !== undefined && !panel.status) {
-                        return {
+                const data = JSON.parse(saved);
+                
+                if (data.pages) {
+                    pages = data.pages;
+                    currentPageId = data.currentPageId || (pages.length > 0 ? pages[0].id : null);
+                } else {
+                    const oldPanels = Array.isArray(data) ? data : [];
+                    pages = [{
+                        id: 1,
+                        name: 'Sayfa 1',
+                        panels: oldPanels.map(panel => ({
                             ...panel,
-                            status: panel.installed ? 'installed' : 'to-install'
-                        };
-                    }
-                    if (!panel.status) {
-                        return {
-                            ...panel,
-                            status: 'to-install'
-                        };
-                    }
-                    return panel;
-                });
-                saveData();
+                            status: panel.status || (panel.installed ? 'installed' : 'to-install'),
+                            note: panel.note || ''
+                        }))
+                    }];
+                    currentPageId = 1;
+                }
             } else {
-                panels = [
-                    { id: 1, code: 'P-001', shape: 'rectangle', width: 100, height: 60, x: 50, y: 50, rotation: 0, status: 'cannot-install' },
-                    { id: 2, code: 'P-002', shape: 'rectangle', width: 80, height: 80, x: 200, y: 50, rotation: 0, status: 'to-install' },
-                    { id: 3, code: 'P-003', shape: 'circle', width: 70, height: 70, x: 350, y: 50, rotation: 0, status: 'installed' },
-                ];
+                pages = [{
+                    id: 1,
+                    name: 'Sayfa 1',
+                    panels: []
+                }];
+                currentPageId = 1;
             }
             render();
+            renderPages();
         }
 
         function saveData() {
-            localStorage.setItem('panelData', JSON.stringify(panels));
+            localStorage.setItem('panelData', JSON.stringify({
+                pages: pages,
+                currentPageId: currentPageId
+            }));
+        }
+
+        function getCurrentPage() {
+            return pages.find(p => p.id === currentPageId);
+        }
+
+        function getCurrentPanels() {
+            const page = getCurrentPage();
+            return page ? page.panels : [];
+        }
+
+        function addNewPage() {
+            const newId = pages.length > 0 ? Math.max(...pages.map(p => p.id)) + 1 : 1;
+            const newPage = {
+                id: newId,
+                name: `Sayfa ${newId}`,
+                panels: []
+            };
+            pages.push(newPage);
+            currentPageId = newId;
+            saveData();
+            renderPages();
+            render();
+        }
+
+        function switchPage(pageId) {
+            currentPageId = pageId;
+            selectedPanelId = null;
+            saveData();
+            render();
+            renderPages();
+        }
+
+        function editPageName(pageId, event) {
+            event.stopPropagation();
+            editingPageId = pageId;
+            const page = pages.find(p => p.id === pageId);
+            if (page) {
+                document.getElementById('pageEditName').value = page.name;
+                document.getElementById('pageEditModal').classList.add('active');
+            }
+        }
+
+        function savePageName() {
+            const page = pages.find(p => p.id === editingPageId);
+            if (page) {
+                page.name = document.getElementById('pageEditName').value || `Sayfa ${page.id}`;
+                saveData();
+                renderPages();
+                closePageEditModal();
+            }
+        }
+
+        function closePageEditModal() {
+            document.getElementById('pageEditModal').classList.remove('active');
+            editingPageId = null;
+        }
+
+        function deletePage(pageId, event) {
+            event.stopPropagation();
+            if (pages.length === 1) {
+                alert('Son sayfayı silemezsiniz!');
+                return;
+            }
+            const page = pages.find(p => p.id === pageId);
+            if (confirm(`"${page.name}" sayfasını silmek istediğinizden emin misiniz?`)) {
+                pages = pages.filter(p => p.id !== pageId);
+                if (currentPageId === pageId) {
+                    currentPageId = pages[0].id;
+                }
+                saveData();
+                renderPages();
+                render();
+            }
+        }
+
+        function renderPages() {
+            const pagesBar = document.getElementById('pagesBar');
+            pagesBar.innerHTML = pages.map(page => `
+                <div class="page-tab ${page.id === currentPageId ? 'active' : ''}" onclick="switchPage(${page.id})">
+                    <span ondblclick="editPageName(${page.id}, event)">${page.name}</span>
+                    ${pages.length > 1 ? `<span class="delete-page" onclick="deletePage(${page.id}, event)">×</span>` : ''}
+                </div>
+            `).join('');
         }
 
         function toggleAddForm() {
@@ -559,7 +727,8 @@
                 return;
             }
 
-            const newId = panels.length > 0 ? Math.max(...panels.map(p => p.id)) + 1 : 1;
+            const page = getCurrentPage();
+            const newId = page.panels.length > 0 ? Math.max(...page.panels.map(p => p.id)) + 1 : 1;
             const newPanel = {
                 id: newId,
                 code: code,
@@ -568,21 +737,22 @@
                 height: parseInt(document.getElementById('newHeight').value),
                 x: 50,
                 y: 50,
-                rotation: 0,
-                status: 'to-install'
+                status: 'cannot-install',
+                note: ''
             };
 
-            panels.push(newPanel);
+            page.panels.push(newPanel);
             saveData();
             render();
 
             document.getElementById('newCode').value = '';
-            document.getElementById('newWidth').value = '80';
-            document.getElementById('newHeight').value = '50';
+            document.getElementById('newWidth').value = '50';
+            document.getElementById('newHeight').value = '80';
             toggleAddForm();
         }
 
         function toggleStatus(id) {
+            const panels = getCurrentPanels();
             const panel = panels.find(p => p.id === id);
             if (panel) {
                 if (panel.status === 'cannot-install') {
@@ -597,18 +767,10 @@
             }
         }
 
-        function rotatePanel(id) {
-            const panel = panels.find(p => p.id === id);
-            if (panel) {
-                panel.rotation = (panel.rotation + 90) % 360;
-                saveData();
-                render();
-            }
-        }
-
         function deletePanel(id) {
             if (confirm('Bu döşemeyi silmek istediğinizden emin misiniz?')) {
-                panels = panels.filter(p => p.id !== id);
+                const page = getCurrentPage();
+                page.panels = page.panels.filter(p => p.id !== id);
                 selectedPanelId = null;
                 saveData();
                 render();
@@ -616,6 +778,7 @@
         }
 
         function openEditModal(id) {
+            const panels = getCurrentPanels();
             const panel = panels.find(p => p.id === id);
             if (panel) {
                 editingPanelId = id;
@@ -623,6 +786,7 @@
                 document.getElementById('editShape').value = panel.shape;
                 document.getElementById('editWidth').value = panel.width;
                 document.getElementById('editHeight').value = panel.height;
+                document.getElementById('editNote').value = panel.note || '';
                 document.getElementById('editModal').classList.add('active');
             }
         }
@@ -633,12 +797,14 @@
         }
 
         function saveEdit() {
+            const panels = getCurrentPanels();
             const panel = panels.find(p => p.id === editingPanelId);
             if (panel) {
                 panel.code = document.getElementById('editCode').value;
                 panel.shape = document.getElementById('editShape').value;
                 panel.width = parseInt(document.getElementById('editWidth').value);
                 panel.height = parseInt(document.getElementById('editHeight').value);
+                panel.note = document.getElementById('editNote').value;
                 saveData();
                 render();
                 closeEditModal();
@@ -646,6 +812,7 @@
         }
 
         function updateStats() {
+            const panels = getCurrentPanels();
             const installed = panels.filter(p => p.status === 'installed').length;
             const total = panels.length;
             const percentage = total > 0 ? Math.round((installed / total) * 100) : 0;
@@ -664,6 +831,7 @@
         function render() {
             const canvasInner = document.getElementById('canvasInner');
             canvasInner.innerHTML = '';
+            const panels = getCurrentPanels();
 
             panels.forEach(panel => {
                 const panelDiv = document.createElement('div');
@@ -672,17 +840,24 @@
                 panelDiv.style.top = panel.y + 'px';
                 panelDiv.style.width = panel.width + 'px';
                 panelDiv.style.height = panel.height + 'px';
-                panelDiv.style.transform = `rotate(${panel.rotation}deg)`;
+                panelDiv.title = panel.note || '';
+                panelDiv.dataset.panelId = panel.id;
 
                 const shapeDiv = document.createElement('div');
                 shapeDiv.className = 'panel-shape ' + panel.shape + ' ' + panel.status;
                 shapeDiv.textContent = panel.code;
                 
+                if (panel.note) {
+                    const noteIndicator = document.createElement('div');
+                    noteIndicator.className = 'panel-note-indicator';
+                    noteIndicator.textContent = '📝';
+                    shapeDiv.appendChild(noteIndicator);
+                }
+                
                 const controlsDiv = document.createElement('div');
                 controlsDiv.className = 'panel-controls';
                 controlsDiv.innerHTML = `
                     <button class="control-btn ${getStatusButtonClass(panel.status)}" onclick="event.stopPropagation(); toggleStatus(${panel.id})" title="Durum">✓</button>
-                    <button class="control-btn btn-primary" onclick="event.stopPropagation(); rotatePanel(${panel.id})" title="Döndür">↻</button>
                     <button class="control-btn btn-warning" onclick="event.stopPropagation(); openEditModal(${panel.id})" title="Düzenle">✎</button>
                     <button class="control-btn btn-danger" onclick="event.stopPropagation(); deletePanel(${panel.id})" title="Sil">🗑</button>
                 `;
@@ -690,8 +865,8 @@
                 panelDiv.appendChild(shapeDiv);
                 panelDiv.appendChild(controlsDiv);
 
-                panelDiv.addEventListener('mousedown', (e) => handlePanelStart(e, panel));
-                panelDiv.addEventListener('touchstart', (e) => handlePanelStart(e, panel));
+                panelDiv.addEventListener('touchstart', handleTouchStart, { passive: false });
+                panelDiv.addEventListener('mousedown', handleMouseDown);
 
                 canvasInner.appendChild(panelDiv);
             });
@@ -699,70 +874,132 @@
             updateStats();
         }
 
-        function handlePanelStart(e, panel) {
+        function handleTouchStart(e) {
             if (e.target.closest('.panel-controls')) return;
             
+            e.preventDefault();
             e.stopPropagation();
-            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            
+            const panelDiv = e.currentTarget;
+            const panelId = parseInt(panelDiv.dataset.panelId);
+            const panels = getCurrentPanels();
+            const panel = panels.find(p => p.id === panelId);
+            
+            if (!panel) return;
+            
+            touchStartTime = Date.now();
+            const touch = e.touches[0];
+            const canvas = document.getElementById('canvas');
+            
+            canvasScrollLeft = canvas.scrollLeft;
+            canvasScrollTop = canvas.scrollTop;
             
             selectedPanelId = panel.id;
             draggedPanel = panel;
-            dragOffset.x = clientX - panel.x;
-            dragOffset.y = clientY - panel.y;
+            
+            dragOffset.x = touch.clientX - panel.x + canvasScrollLeft;
+            dragOffset.y = touch.clientY - panel.y + canvasScrollTop;
+            
+            panelDiv.classList.add('dragging');
             render();
         }
 
-        function handleCanvasStart(e) {
-            if (e.target.closest('.panel')) return;
+        function handleMouseDown(e) {
+            if (e.target.closest('.panel-controls')) return;
             
-            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            e.stopPropagation();
             
-            isDraggingViewport = true;
-            viewportDragStart.x = clientX;
-            viewportDragStart.y = clientY;
-            selectedPanelId = null;
+            const panelDiv = e.currentTarget;
+            const panelId = parseInt(panelDiv.dataset.panelId);
+            const panels = getCurrentPanels();
+            const panel = panels.find(p => p.id === panelId);
+            
+            if (!panel) return;
+            
+            const canvas = document.getElementById('canvas');
+            canvasScrollLeft = canvas.scrollLeft;
+            canvasScrollTop = canvas.scrollTop;
+            
+            selectedPanelId = panel.id;
+            draggedPanel = panel;
+            
+            dragOffset.x = e.clientX - panel.x + canvasScrollLeft;
+            dragOffset.y = e.clientY - panel.y + canvasScrollTop;
+            
+            panelDiv.classList.add('dragging');
             render();
         }
-
-        document.addEventListener('mousemove', (e) => {
-            if (draggedPanel) {
-                draggedPanel.x = e.clientX - dragOffset.x;
-                draggedPanel.y = e.clientY - dragOffset.y;
-                render();
-            }
-        });
 
         document.addEventListener('touchmove', (e) => {
             if (draggedPanel) {
                 e.preventDefault();
                 const touch = e.touches[0];
-                draggedPanel.x = touch.clientX - dragOffset.x;
-                draggedPanel.y = touch.clientY - dragOffset.y;
-                render();
+                const canvas = document.getElementById('canvas');
+                
+                draggedPanel.x = touch.clientX - dragOffset.x + canvas.scrollLeft;
+                draggedPanel.y = touch.clientY - dragOffset.y + canvas.scrollTop;
+                
+                const panelDiv = document.querySelector(`[data-panel-id="${draggedPanel.id}"]`);
+                if (panelDiv) {
+                    panelDiv.style.left = draggedPanel.x + 'px';
+                    panelDiv.style.top = draggedPanel.y + 'px';
+                }
             }
         }, { passive: false });
 
-        document.addEventListener('mouseup', () => {
+        document.addEventListener('touchend', (e) => {
             if (draggedPanel) {
+                e.preventDefault();
+                
+                const panelDiv = document.querySelector(`[data-panel-id="${draggedPanel.id}"]`);
+                if (panelDiv) {
+                    panelDiv.classList.remove('dragging');
+                }
+                
                 draggedPanel = null;
-                isDraggingViewport = false;
                 saveData();
             }
         });
 
-        document.addEventListener('touchend', () => {
+        document.addEventListener('mousemove', (e) => {
             if (draggedPanel) {
+                const canvas = document.getElementById('canvas');
+                
+                draggedPanel.x = e.clientX - dragOffset.x + canvas.scrollLeft;
+                draggedPanel.y = e.clientY - dragOffset.y + canvas.scrollTop;
+                
+                const panelDiv = document.querySelector(`[data-panel-id="${draggedPanel.id}"]`);
+                if (panelDiv) {
+                    panelDiv.style.left = draggedPanel.x + 'px';
+                    panelDiv.style.top = draggedPanel.y + 'px';
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (draggedPanel) {
+                const panelDiv = document.querySelector(`[data-panel-id="${draggedPanel.id}"]`);
+                if (panelDiv) {
+                    panelDiv.classList.remove('dragging');
+                }
+                
                 draggedPanel = null;
-                isDraggingViewport = false;
                 saveData();
             }
         });
 
         const canvas = document.getElementById('canvas');
-        canvas.addEventListener('mousedown', handleCanvasStart);
-        canvas.addEventListener('touchstart', handleCanvasStart);
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.panel')) return;
+            selectedPanelId = null;
+            render();
+        }, { passive: true });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.panel')) return;
+            selectedPanelId = null;
+            render();
+        });
 
         document.getElementById('newCode').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') addPanel();
@@ -772,21 +1009,23 @@
             if (e.target.id === 'editModal') closeEditModal();
         });
 
+        document.getElementById('pageEditModal').addEventListener('click', (e) => {
+            if (e.target.id === 'pageEditModal') closePageEditModal();
+        });
+
         loadData();
 
         function exportData() {
-            if (panels.length === 0) {
-                alert('Dışa aktarılacak panel verisi yok.');
+            if (pages.length === 0) {
+                alert('Dışa aktarılacak veri yok.');
                 return;
             }
-            // Mevcut panel verisini [cite: 90] JSON metnine çevir
-            const dataStr = JSON.stringify(panels, null, 2);
-            // Bir dosya olarak indirmek için sanal bir link oluştur
+            const dataStr = JSON.stringify({ pages, currentPageId }, null, 2);
             const dataBlob = new Blob([dataStr], { type: 'application/json' });
             const url = URL.createObjectURL(dataBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'panel-verisi.json'; // İndirilecek dosyanın adı
+            a.download = 'panel-verisi.json';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -797,8 +1036,7 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            if (!confirm('Mevcut tüm paneller silinecek ve bu dosyadan yenileri yüklenecek. Emin misiniz?')) {
-                // Input'u sıfırla ki aynı dosyayı tekrar seçebilsin
+            if (!confirm('Mevcut tüm veriler silinecek ve bu dosyadan yenileri yüklenecek. Emin misiniz?')) {
                 event.target.value = null;
                 return;
             }
@@ -806,24 +1044,24 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    const importedPanels = JSON.parse(e.target.result);
-                    if (Array.isArray(importedPanels)) {
-                        panels = importedPanels; // Panelleri içe aktarılanla değiştir [cite: 90]
-                        saveData(); // Yeni veriyi localStorage'a kaydet 
-                        render();   // Ekranı yenile [cite: 100, 129]
+                    const data = JSON.parse(e.target.result);
+                    if (data.pages && Array.isArray(data.pages)) {
+                        pages = data.pages;
+                        currentPageId = data.currentPageId || (pages.length > 0 ? pages[0].id : null);
+                        saveData();
+                        renderPages();
+                        render();
                         alert('Veri başarıyla içe aktarıldı!');
                     } else {
-                        alert('Dosya formatı geçersiz. Lütfen .json dosyası seçin.');
+                        alert('Dosya formatı geçersiz.');
                     }
                 } catch (error) {
                     alert('Dosya okunurken bir hata oluştu: ' + error.message);
                 }
-                // Input'u sıfırla
                 event.target.value = null;
             };
             reader.readAsText(file);
         }
-        
     </script>
 </body>
 </html>
