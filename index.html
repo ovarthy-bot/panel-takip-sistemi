@@ -5,20 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Panel Döşeme Takip Sistemi (Bulut)</title>
     <style>
-        /* CSS AYNI KALDI - SADECE GEREKSİZLERİ TEMİZLEDİM */
+        /* CSS AYARLARI */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #fff; overflow: hidden; }
-        .header { background: #16213e; padding: 12px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+        
+        /* HEADER DÜZENLEMESİ (Sorunun Çözüldüğü Yer) */
+        .header { 
+            background: #16213e; 
+            padding: 12px 16px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3); 
+            /* Mobilde buton için soldan boşluk */
+            padding-left: 65px !important; 
+        }
+
         .header-content { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .header h1 { font-size: 18px; margin-bottom: 5px; }
         .header .stats { color: #94a3b8; font-size: 12px; }
-        @media (min-width: 768px) { .header { padding: 20px; } .header h1 { font-size: 24px; } .header .stats { font-size: 14px; } }
+        
+        /* MASAÜSTÜ AYARLARI */
+        @media (min-width: 768px) { 
+            .header { 
+                /* DÜZELTME: padding: 20px yerine, soldan 80px boşluk bırakıyoruz */
+                padding: 20px 20px 20px 80px !important; 
+            } 
+            .header h1 { font-size: 24px; } 
+            .header .stats { font-size: 14px; } 
+        }
+        
         .pages-bar { display: flex; gap: 8px; align-items: center; overflow-x: auto; padding: 8px 0; margin-top: 10px; }
         .page-tab { padding: 8px 16px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
         .page-tab:hover { background: #1e293b; }
         .page-tab.active { background: #3b82f6; border-color: #3b82f6; }
         .page-tab .delete-page { color: #ef4444; font-weight: bold; padding: 0 4px; }
         .page-tab .delete-page:hover { color: #dc2626; }
+        
         .btn { padding: 8px 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; touch-action: manipulation; }
         @media (min-width: 768px) { .btn { padding: 10px 20px; } }
         .btn-primary { background: #3b82f6; color: white; }
@@ -31,6 +51,7 @@
         .btn-secondary:hover { background: #475569; }
         .btn-warning { background: #eab308; color: white; }
         .btn-warning:hover { background: #ca8a04; }
+        
         .add-form { background: #1e293b; padding: 12px; border-radius: 8px; margin-top: 12px; display: none; }
         .add-form.active { display: block; }
         .form-row { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 12px; }
@@ -38,23 +59,29 @@
         @media (min-width: 768px) { .form-row { grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; } .add-form { padding: 20px; } }
         .form-input { background: #0f172a; border: 1px solid #334155; color: white; padding: 10px; border-radius: 6px; font-size: 14px; }
         .form-input:focus { outline: none; border-color: #3b82f6; }
+        
         .canvas-container { height: calc(100vh - 240px); position: relative; overflow: auto; background: #0f172a; -webkit-overflow-scrolling: touch; }
         .canvas-inner { position: relative; min-width: 2000px; min-height: 2000px; background-image: linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px); background-size: 20px 20px; }
+        
         .panel { position: absolute; cursor: move; user-select: none; transition: box-shadow 0.2s; }
         .panel.selected { box-shadow: 0 0 0 3px #3b82f6; z-index: 1000; }
         .panel.dragging { opacity: 0.8; z-index: 1001; }
+        
         .panel-shape { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; border: 2px solid; transition: all 0.3s; position: relative; pointer-events: none; }
         .panel-shape.rectangle { border-radius: 4px; }
         .panel-shape.circle { border-radius: 50%; }
         .panel-shape.cannot-install { background: #ef4444; border-color: #dc2626; }
         .panel-shape.to-install { background: #3b82f6; border-color: #2563eb; }
         .panel-shape.installed { background: #22c55e; border-color: #16a34a; }
+        
         .panel-note-indicator { position: absolute; top: 2px; right: 2px; background: #eab308; color: #000; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
+        
         .panel-controls { position: absolute; top: -40px; left: 0; display: none; gap: 5px; z-index: 1000; }
         @media (max-width: 767px) { .panel-controls { top: auto; bottom: -40px; } }
         .panel.selected .panel-controls { display: flex; }
         .control-btn { padding: 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; color: white; display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; touch-action: manipulation; }
         @media (min-width: 768px) { .control-btn { padding: 6px; min-width: 28px; min-height: 28px; } }
+        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 2000; align-items: center; justify-content: center; padding: 16px; }
         .modal.active { display: flex; }
         .modal-content { background: #1e293b; padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
@@ -65,6 +92,7 @@
         .form-label { display: block; color: #94a3b8; font-size: 13px; margin-bottom: 5px; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .modal-actions { display: flex; gap: 10px; margin-top: 25px; }
+        
         .footer { background: #16213e; padding: 8px 16px; border-top: 1px solid #1e293b; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 11px; }
         @media (min-width: 768px) { .footer { padding: 12px 20px; gap: 25px; font-size: 13px; } }
         .legend-item { display: flex; align-items: center; gap: 8px; }
@@ -79,14 +107,14 @@
         .spinner { width: 40px; height: 40px; border: 4px solid #3b82f6; border-top: 4px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* --- YENİ EKLENEN BUTON STİLLERİ --- */
+        /* BUTON STİLİ */
         .home-btn {
             position: fixed;
             top: 12px;
             left: 12px;
             width: 42px;
             height: 42px;
-            background: #3b82f6; /* Temanızdaki mavi renk */
+            background: #3b82f6;
             color: white;
             border-radius: 50%;
             display: flex;
@@ -94,7 +122,7 @@
             justify-content: center;
             text-decoration: none;
             font-size: 22px;
-            z-index: 9999; /* Her şeyin üstünde durması için */
+            z-index: 10001;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             border: 2px solid #1e293b;
             transition: transform 0.2s, background 0.2s;
@@ -103,16 +131,11 @@
             transform: scale(1.1);
             background: #2563eb;
         }
-
-        /* Başlığın butonun altında kalmaması için Header'ı biraz sağa itelim */
-        .header {
-            padding-left: 65px !important; 
-        }
-        
     </style>
 </head>
 <body>
     <a href="https://ovarthy-bot.github.io/navigasyon/" class="home-btn" title="Ana Sayfaya Dön">🏠</a>
+    
     <div id="loading">
         <div class="spinner"></div>
         <p style="margin-top: 10px; color: #94a3b8;">Veriler Buluttan Yükleniyor...</p>
@@ -131,7 +154,7 @@
                 <button class="btn btn-success" onclick="addNewPage()">
                     📄 <span class="hide-mobile">Yeni Sayfa</span>
                 </button>
-                </div>
+            </div>
         </div>
 
         <div class="pages-bar" id="pagesBar"></div>
@@ -223,29 +246,22 @@
     </div>
 
     <script type="module">
-        // Firebase SDK'larını içe aktarıyoruz
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // --- BURASI DÜZENLENECEK ---
-        // Firebase Konsolundan aldığın "firebaseConfig" nesnesini buraya yapıştır:
         const firebaseConfig = {
-  apiKey: "AIzaSyCo9m5Pj3f4yWD1wbvmjDY9UJkTuokUGPI",
-  authDomain: "panel-takibim.firebaseapp.com",
-  projectId: "panel-takibim",
-  storageBucket: "panel-takibim.firebasestorage.app",
-  messagingSenderId: "570961051186",
-  appId: "1:570961051186:web:305776cdbfcf2714ce862b"
-};
+            apiKey: "AIzaSyCo9m5Pj3f4yWD1wbvmjDY9UJkTuokUGPI",
+            authDomain: "panel-takibim.firebaseapp.com",
+            projectId: "panel-takibim",
+            storageBucket: "panel-takibim.firebasestorage.app",
+            messagingSenderId: "570961051186",
+            appId: "1:570961051186:web:305776cdbfcf2714ce862b"
+        };
 
-        // Firebase Başlatma
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
-        // Veritabanında tek bir döküman kullanacağız: "trackers" koleksiyonu altında "main" dökümanı.
         const docRef = doc(db, "trackers", "main");
 
-        // Global değişkenler
         let pages = [];
         let currentPageId = null;
         let selectedPanelId = null;
@@ -258,32 +274,18 @@
         let canvasScrollTop = 0;
         let isFirstLoad = true;
 
-        // --- Veritabanı İşlemleri ---
-
-        // 1. Verileri Dinle (Realtime Listener)
-        // Veritabanında bir değişiklik olduğunda bu fonksiyon otomatik çalışır.
+        // Firebase Listener
         onSnapshot(docRef, (docSnap) => {
-            document.getElementById('loading').style.display = 'none'; // Yükleme ekranını gizle
-
+            document.getElementById('loading').style.display = 'none';
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                // Veriyi aldık, state'i güncelleyelim
                 pages = data.pages || [];
-                
-                // Eğer sayfa ID'si daha önce set edilmemişse veya mevcut değilse
                 if (!currentPageId && pages.length > 0) {
                     currentPageId = data.currentPageId || pages[0].id;
-                } else {
-                    // Veritabanındaki aktif sayfayı da takip edebiliriz ama
-                    // kullanıcı deneyimi için yerel kalması daha iyi olabilir.
-                    // Şimdilik sadece veriyi senkronize ediyoruz.
                 }
-
-                // Arayüzü güncelle
                 renderPages();
                 render();
             } else {
-                // Eğer veritabanı boşsa (ilk açılış), varsayılan veri oluştur
                 initializeDefaultData();
             }
         }, (error) => {
@@ -292,8 +294,6 @@
             document.getElementById('connectionStatus').style.color = "red";
         });
 
-        // 2. Verileri Kaydet (Save)
-        // Değişiklik olduğunda localStorage yerine burayı çağıracağız.
         async function saveDataToFirebase() {
             document.getElementById('connectionStatus').textContent = "🟡 Kaydediliyor...";
             try {
@@ -311,7 +311,6 @@
             }
         }
 
-        // Varsayılan veri oluşturucu (Proje ilk kez açıldığında çalışır)
         async function initializeDefaultData() {
             pages = [{
                 id: 1,
@@ -322,9 +321,6 @@
             await saveDataToFirebase();
         }
 
-        // --- Mevcut Fonksiyonların Modifikasyonu ---
-        // Artık fonksiyonları "window" nesnesine bağlamamız gerekiyor çünkü "module" tipi script kullanıyoruz.
-        
         window.getCurrentPage = function() {
             return pages.find(p => p.id === currentPageId);
         }
@@ -343,14 +339,12 @@
             };
             pages.push(newPage);
             currentPageId = newId;
-            saveDataToFirebase(); // Firebase'e kaydet
+            saveDataToFirebase();
         }
 
         window.switchPage = function(pageId) {
             currentPageId = pageId;
             selectedPanelId = null;
-            // Sayfa değişimini veritabanına kaydetmeye gerek yok, 
-            // sadece yerel görünümü değiştiriyoruz.
             render();
             renderPages();
         }
@@ -369,7 +363,7 @@
             const page = pages.find(p => p.id === editingPageId);
             if (page) {
                 page.name = document.getElementById('pageEditName').value || `Sayfa ${page.id}`;
-                saveDataToFirebase(); // Firebase'e kaydet
+                saveDataToFirebase();
                 closePageEditModal();
             }
         }
@@ -391,7 +385,7 @@
                 if (currentPageId === pageId) {
                     currentPageId = pages[0].id;
                 }
-                saveDataToFirebase(); // Firebase'e kaydet
+                saveDataToFirebase();
             }
         }
 
@@ -418,12 +412,10 @@
             }
 
             const page = window.getCurrentPage();
-            const newId = page.panels.length > 0 ? Math.max(...page.panels.map(p => p.id)) + 1 : 1;
-            // ID çakışmasını önlemek için tarih damgası da ekleyelim (çok kullanıcılı sistem için daha güvenli)
             const uniqueId = Date.now(); 
 
             const newPanel = {
-                id: uniqueId, // Basit ID yerine unique ID
+                id: uniqueId,
                 code: code,
                 shape: document.getElementById('newShape').value,
                 width: parseInt(document.getElementById('newWidth').value),
@@ -435,7 +427,7 @@
             };
 
             page.panels.push(newPanel);
-            saveDataToFirebase(); // Firebase'e kaydet
+            saveDataToFirebase();
 
             document.getElementById('newCode').value = '';
             document.getElementById('newWidth').value = '50';
@@ -454,7 +446,7 @@
                 } else {
                     panel.status = 'cannot-install';
                 }
-                saveDataToFirebase(); // Firebase'e kaydet
+                saveDataToFirebase();
             }
         }
 
@@ -463,7 +455,7 @@
                 const page = window.getCurrentPage();
                 page.panels = page.panels.filter(p => p.id !== id);
                 selectedPanelId = null;
-                saveDataToFirebase(); // Firebase'e kaydet
+                saveDataToFirebase();
             }
         }
 
@@ -495,7 +487,7 @@
                 panel.width = parseInt(document.getElementById('editWidth').value);
                 panel.height = parseInt(document.getElementById('editHeight').value);
                 panel.note = document.getElementById('editNote').value;
-                saveDataToFirebase(); // Firebase'e kaydet
+                saveDataToFirebase();
                 window.closeEditModal();
             }
         }
@@ -563,14 +555,12 @@
             window.updateStats();
         }
 
-        // --- Drag & Drop Olayları ---
-        
         function handleTouchStart(e) {
             if (e.target.closest('.panel-controls')) return;
             e.preventDefault();
             e.stopPropagation();
             const panelDiv = e.currentTarget;
-            const panelId = parseInt(panelDiv.dataset.panelId); // ID tiplerine dikkat
+            const panelId = parseInt(panelDiv.dataset.panelId);
             const panels = window.getCurrentPanels();
             const panel = panels.find(p => p.id === panelId);
             if (!panel) return;
@@ -608,7 +598,6 @@
             window.render();
         }
 
-        // Olay Dinleyicileri (Document)
         document.addEventListener('touchmove', (e) => {
             if (draggedPanel) {
                 e.preventDefault();
@@ -631,7 +620,7 @@
                 const panelDiv = document.querySelector(`[data-panel-id="${draggedPanel.id}"]`);
                 if (panelDiv) panelDiv.classList.remove('dragging');
                 draggedPanel = null;
-                saveDataToFirebase(); // Sürükleme bitince Firebase'e kaydet
+                saveDataToFirebase();
             }
         });
 
@@ -654,35 +643,9 @@
                 const panelDiv = document.querySelector(`[data-panel-id="${draggedPanel.id}"]`);
                 if (panelDiv) panelDiv.classList.remove('dragging');
                 draggedPanel = null;
-                saveDataToFirebase(); // Sürükleme bitince Firebase'e kaydet
+                saveDataToFirebase();
             }
         });
-
-        const canvas = document.getElementById('canvas');
-        canvas.addEventListener('touchstart', (e) => {
-            if (e.target.closest('.panel')) return;
-            selectedPanelId = null;
-            window.render();
-        }, { passive: true });
-
-        canvas.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.panel')) return;
-            selectedPanelId = null;
-            window.render();
-        });
-
-        document.getElementById('newCode').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') window.addPanel();
-        });
-
-        document.getElementById('editModal').addEventListener('click', (e) => {
-            if (e.target.id === 'editModal') window.closeEditModal();
-        });
-
-        document.getElementById('pageEditModal').addEventListener('click', (e) => {
-            if (e.target.id === 'pageEditModal') window.closePageEditModal();
-        });
-
     </script>
 </body>
 </html>
