@@ -78,9 +78,41 @@
         #loading { position: fixed; top:0; left:0; width:100%; height:100%; background:#1a1a2e; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
         .spinner { width: 40px; height: 40px; border: 4px solid #3b82f6; border-top: 4px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* --- YENİ EKLENEN BUTON STİLLERİ --- */
+        .home-btn {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            width: 42px;
+            height: 42px;
+            background: #3b82f6; /* Temanızdaki mavi renk */
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            font-size: 22px;
+            z-index: 9999; /* Her şeyin üstünde durması için */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            border: 2px solid #1e293b;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .home-btn:hover {
+            transform: scale(1.1);
+            background: #2563eb;
+        }
+
+        /* Başlığın butonun altında kalmaması için Header'ı biraz sağa itelim */
+        .header {
+            padding-left: 65px !important; 
+        }
+        
     </style>
 </head>
 <body>
+    <a href="https://ovarthy-bot.github.io/navigasyon/" class="home-btn" title="Ana Sayfaya Dön">🏠</a>
     <div id="loading">
         <div class="spinner"></div>
         <p style="margin-top: 10px; color: #94a3b8;">Veriler Buluttan Yükleniyor...</p>
