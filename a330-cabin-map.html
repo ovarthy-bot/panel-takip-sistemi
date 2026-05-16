@@ -1,0 +1,1481 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>A330 Cabin Map — Galley / Lavatory</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #111827;
+    --panel-2: #0b1220;
+    --border: #1f2937;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --accent: #e879f9;
+    --lav: #38bdf8;
+    --gal: #fb923c;
+    --zone: rgba(250, 204, 21, 0.20);
+    --zone-stroke: #ca8a04;
+    --map-bg: #f8fafc;
+    --map-ink: #0f172a;
+    --map-soft: #cbd5e1;
+    --warn: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 260px 1fr 320px;
+    grid-template-rows: 48px 1fr;
+    grid-template-areas:
+      "top top top"
+      "left main right";
+    height: 100vh;
+  }
+  header {
+    grid-area: top;
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 14px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+  }
+  header .title { font-weight: 700; letter-spacing: 0.4px; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header .search {
+    margin-left: auto; display: flex; gap: 6px; align-items: center;
+  }
+  header input[type="search"] {
+    background: #0b1220; color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px; width: 260px;
+    outline: none;
+  }
+  header input[type="search"]:focus { border-color: var(--accent); }
+  .left, .right {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow: auto;
+  }
+  .right { border-right: none; border-left: 1px solid var(--border); }
+  .left { grid-area: left; }
+  .right { grid-area: right; }
+  main { grid-area: main; background: var(--bg); position: relative; overflow: hidden; }
+
+  .section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .section h3 {
+    margin: 0 0 8px; font-size: 11px; letter-spacing: 1px;
+    color: var(--muted); text-transform: uppercase; font-weight: 700;
+  }
+  .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .row label { cursor: pointer; user-select: none; }
+  select, .btn, input[type="text"] {
+    width: 100%;
+    background: #0b1220; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 8px; outline: none;
+  }
+  .btn { cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; border: 1px solid var(--border); color: var(--muted);
+    background: #0b1220;
+  }
+  .pill.lav { color: var(--lav); border-color: rgba(56, 189, 248, 0.4); }
+  .pill.gal { color: var(--gal); border-color: rgba(251, 146, 60, 0.4); }
+  .pill.pel { color: #34d399; border-color: rgba(16, 185, 129, 0.4); }
+  .pill.cel { color: #2dd4bf; border-color: rgba(20, 184, 166, 0.4); }
+  .pill.par { color: #cbd5e1; border-color: rgba(100, 116, 139, 0.5); }
+  .pill.flr { color: #fbbf24; border-color: rgba(245, 158, 11, 0.45); }
+
+  /* Map */
+  .map-wrap {
+    position: absolute; inset: 0;
+    background: var(--map-bg);
+    overflow: hidden;
+  }
+  svg.cabin {
+    width: 100%; height: 100%;
+    display: block;
+    touch-action: none;
+    user-select: none;
+  }
+  .frame-line { stroke: #cbd5e1; stroke-width: 1; stroke-dasharray: 2 3; }
+  .frame-label { font: 9px ui-monospace, Menlo, monospace; fill: #64748b; }
+  .door-line { stroke: #334155; stroke-width: 2; }
+  .door-label { font: 9px ui-monospace, Menlo, monospace; fill: #334155; }
+  .fuselage {
+    fill: #fff; stroke: #0f172a; stroke-width: 1.5;
+  }
+  .seat-row { fill: #e2e8f0; }
+  .zone-shape { fill: var(--zone); stroke: var(--zone-stroke); stroke-width: 0.6; stroke-dasharray: 4 3; }
+  .zone-label { font: 10px ui-monospace, Menlo, monospace; fill: #92400e; font-weight: 700; }
+
+  .hotspot { cursor: pointer; transition: transform 120ms ease; transform-origin: center; transform-box: fill-box; }
+  .hotspot:hover { transform: scale(1.15); }
+  .hotspot.lav { fill: var(--lav); stroke: #0c4a6e; stroke-width: 1; }
+  .hotspot.gal { fill: var(--gal); stroke: #7c2d12; stroke-width: 1; }
+  .hotspot.pel { fill: #10b981; stroke: #065f46; stroke-width: 1; }
+  .hotspot.cel { fill: #14b8a6; stroke: #134e4a; stroke-width: 1; }
+  .hotspot.par { fill: #64748b; stroke: #1e293b; stroke-width: 1; }
+  .hotspot.flr { fill: #f59e0b; stroke: #78350f; stroke-width: 1; }
+
+  /* Cargo compartment overlay (FWD / AFT / BULK) */
+  .cargo-rect {
+    fill: rgba(148, 163, 184, 0.10);
+    stroke: #64748b; stroke-width: 0.8; stroke-dasharray: 4 3;
+  }
+  .cargo-label {
+    font: 9px ui-monospace, Menlo, monospace; fill: #475569; font-weight: 700;
+  }
+  .cargo-sub {
+    font: 8px ui-monospace, Menlo, monospace; fill: #64748b;
+  }
+  /* Engine nacelle (wing-mounted) */
+  .nacelle {
+    fill: #cbd5e1; stroke: #334155; stroke-width: 0.8;
+  }
+  /* Leader line for auto-spread offsets */
+  .leader {
+    stroke: #475569; stroke-width: 0.6; stroke-dasharray: 2 2; fill: none;
+  }
+  /* Hide map button (mobile) */
+  .hide-map .map-wrap svg.cabin { display: none; }
+  .hide-map .legend, .hide-map .toolbar { display: none; }
+  .hide-map .map-wrap::after {
+    content: "Map hidden — toggle from header";
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #64748b; font: 12px ui-monospace, Menlo, monospace;
+    background: #e2e8f0;
+  }
+  /* Header buttons */
+  .hbtn {
+    background: #0b1220; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; cursor: pointer; font: 12px ui-sans-serif;
+  }
+  .hbtn:hover { border-color: var(--accent); }
+  .mini-btns { display: flex; gap: 4px; margin-bottom: 6px; }
+  .mini-btns button {
+    flex: 1; padding: 3px 6px; font-size: 10px;
+    background: #0b1220; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 4px;
+    cursor: pointer;
+  }
+  .mini-btns button:hover { color: var(--text); border-color: var(--accent); }
+
+  /* Print stylesheet */
+  @media print {
+    body { background: #fff; color: #0f172a; }
+    .app {
+      display: block; height: auto;
+    }
+    header, .left, .right { display: none !important; }
+    main { background: #fff; height: auto; }
+    .map-wrap { position: relative; height: 60vh; }
+    .toolbar, .tip { display: none !important; }
+    .print-only { display: block !important; }
+    .print-only h1 { font: 700 16px ui-sans-serif; margin: 0 0 6px; }
+    .print-only .meta { font: 11px ui-monospace; color: #475569; margin-bottom: 10px; }
+    .print-only table { width: 100%; border-collapse: collapse; font: 10px ui-sans-serif; }
+    .print-only th, .print-only td {
+      border: 1px solid #cbd5e1; padding: 4px 6px; text-align: left;
+    }
+    .print-only th { background: #f1f5f9; }
+  }
+  .print-only { display: none; }
+  .hotspot.selected {
+    stroke: var(--accent); stroke-width: 2.5;
+    filter: drop-shadow(0 0 6px rgba(232, 121, 249, 0.8));
+  }
+  .hotspot.dim { opacity: 0.18; }
+  .hotspot-label {
+    font: 9px ui-monospace, Menlo, monospace;
+    fill: #0f172a; pointer-events: none;
+  }
+
+  .legend {
+    position: absolute; left: 12px; bottom: 12px;
+    background: rgba(255,255,255,0.95); color: #0f172a;
+    border: 1px solid #cbd5e1; border-radius: 8px;
+    padding: 8px 10px; font-size: 11px;
+    display: flex; gap: 12px; align-items: center;
+  }
+  .legend .sw { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+  .legend .sw.lav { background: var(--lav); }
+  .legend .sw.gal { background: var(--gal); }
+  .legend .sw.pel { background: #10b981; transform: rotate(45deg); border-radius: 1px; }
+  .legend .sw.cel { background: #14b8a6; clip-path: polygon(50% 0, 100% 100%, 0 100%); border-radius: 0; }
+  .legend .sw.par { background: #64748b; width: 3px; border-radius: 1px; }
+  .legend .sw.flr { background: #f59e0b; border-radius: 1px; }
+  .legend .sw.zone { background: var(--zone); border: 1px dashed var(--zone-stroke); border-radius: 2px; }
+  .legend .sw.cargo { background: rgba(148, 163, 184, 0.20); border: 1px dashed #64748b; border-radius: 1px; }
+
+  .toolbar {
+    position: absolute; right: 12px; bottom: 12px;
+    display: flex; gap: 6px;
+  }
+  .toolbar button {
+    background: rgba(15, 23, 42, 0.85); color: #fff;
+    border: 1px solid #334155; border-radius: 6px;
+    padding: 6px 10px; cursor: pointer; font: 12px ui-monospace, Menlo, monospace;
+  }
+  .toolbar button:hover { border-color: var(--accent); }
+
+  /* Detail card */
+  .detail h2 { margin: 0 0 4px; font-size: 16px; }
+  .detail .meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: 12px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; word-break: break-word; }
+  .empty {
+    color: var(--muted); font-style: italic; padding: 24px 14px;
+  }
+  textarea {
+    width: 100%; min-height: 80px;
+    background: #0b1220; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px; resize: vertical; font: inherit;
+  }
+
+  /* Results list */
+  .results { padding: 0; margin: 0; list-style: none; }
+  .results li {
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+    cursor: pointer; display: flex; justify-content: space-between; gap: 8px;
+  }
+  .results li:hover { background: #0b1220; }
+  .results li.active { background: #0b1220; border-left: 2px solid var(--accent); }
+  .results .name { font-weight: 600; }
+  .results .sub { color: var(--muted); font-size: 11px; }
+
+  /* Tooltip */
+  .tip {
+    position: absolute; pointer-events: none;
+    background: rgba(15, 23, 42, 0.95); color: #fff;
+    border: 1px solid #334155; border-radius: 6px;
+    padding: 6px 8px; font: 11px ui-monospace, Menlo, monospace;
+    transform: translate(-50%, -130%);
+    white-space: nowrap; opacity: 0; transition: opacity 80ms;
+    z-index: 5;
+  }
+  .tip.on { opacity: 1; }
+
+  /* Mobile */
+  @media (max-width: 900px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: 48px auto 1fr auto;
+      grid-template-areas:
+        "top"
+        "left"
+        "main"
+        "right";
+    }
+    .left, .right { max-height: 35vh; }
+    header input[type="search"] { width: 160px; }
+    .legend { font-size: 10px; padding: 6px 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title">A330 Cabin Map</div>
+    <div class="sub">Galley / Lavatory · MVP</div>
+    <div class="search">
+      <button class="hbtn" id="btn-hide-map" title="Toggle map visibility">Hide Map</button>
+      <button class="hbtn" id="btn-print" title="Print / save as PDF">Print / PDF</button>
+      <input id="q" type="search" placeholder="Ara: L11, Lav A, 5001MT, Z220, FR30, 25-41-41" autocomplete="off" />
+    </div>
+  </header>
+
+  <aside class="left">
+    <div class="section">
+      <h3>Aircraft</h3>
+      <select id="aircraft">
+        <option value="A330-300">A330-300</option>
+        <option value="A321">A321</option>
+        <option value="A320">A320</option>
+        <option value="A319">A319</option>
+      </select>
+    </div>
+    <div class="section">
+      <h3>Configuration</h3>
+      <select id="config">
+        <option value="2C">2 Class</option>
+        <option value="3C">3 Class</option>
+        <option value="custom">Custom</option>
+      </select>
+      <div class="row" style="margin-top:8px;color:var(--muted);font-size:11px">
+        Seçili konfigürasyon resmi LOPA yerine geçmez.
+      </div>
+    </div>
+    <div class="section">
+      <h3>Show</h3>
+      <div class="mini-btns">
+        <button id="sel-all">All types</button>
+        <button id="sel-none">None</button>
+        <button id="sel-inv">Invert</button>
+      </div>
+      <div class="row"><input type="checkbox" id="f-lav" checked><label for="f-lav">Lavatories</label></div>
+      <div class="row"><input type="checkbox" id="f-gal" checked><label for="f-gal">Galleys</label></div>
+      <div class="row"><input type="checkbox" id="f-pel" checked><label for="f-pel">Pelmets</label></div>
+      <div class="row"><input type="checkbox" id="f-cel" checked><label for="f-cel">Ceilings</label></div>
+      <div class="row"><input type="checkbox" id="f-par" checked><label for="f-par">Partitions</label></div>
+      <div class="row"><input type="checkbox" id="f-flr" checked><label for="f-flr">Floor Panels</label></div>
+      <div class="row"><input type="checkbox" id="f-zone" checked><label for="f-zone">Zones</label></div>
+      <div class="row"><input type="checkbox" id="f-cargo" checked><label for="f-cargo">Cargo Areas</label></div>
+      <div class="row"><input type="checkbox" id="f-frame" checked><label for="f-frame">Frames</label></div>
+      <div class="row"><input type="checkbox" id="f-code" checked><label for="f-code">Equipment Codes</label></div>
+      <div class="row"><input type="checkbox" id="f-labels" checked><label for="f-labels">Labels</label></div>
+      <div class="row"><input type="checkbox" id="f-spread" checked><label for="f-spread" title="Auto-fan overlapping hotspots">Auto-spread overlaps</label></div>
+    </div>
+    <div class="section">
+      <h3>Zone Mode</h3>
+      <select id="zone-pick">
+        <option value="">— All zones —</option>
+      </select>
+    </div>
+    <div class="section">
+      <h3>Frame Range</h3>
+      <div class="row">
+        <input type="text" id="fr-from" placeholder="FR11" />
+        <input type="text" id="fr-to" placeholder="FR36" />
+      </div>
+      <button class="btn" id="fr-apply" style="margin-top:6px">Apply</button>
+      <button class="btn" id="fr-clear" style="margin-top:6px">Clear</button>
+    </div>
+    <div class="section">
+      <h3>Add Custom Item</h3>
+      <div class="row"><select id="add-type">
+        <option value="lavatory">Lavatory</option>
+        <option value="galley">Galley</option>
+        <option value="pelmet">Pelmet</option>
+        <option value="ceiling">Ceiling</option>
+        <option value="partition">Partition</option>
+        <option value="floor">Floor Panel</option>
+      </select></div>
+      <div class="row"><input type="text" id="add-name" placeholder="Name (e.g. Lavatory F)"></div>
+      <div class="row"><input type="text" id="add-loc" placeholder="Location (e.g. L40)"></div>
+      <div class="row"><input type="text" id="add-code" placeholder="Equipment Code (e.g. 5007MT)"></div>
+      <div class="row"><input type="text" id="add-zone" placeholder="Zone(s) — comma separated"></div>
+      <div class="row">
+        <input type="text" id="add-fr-from" placeholder="FR from">
+        <input type="text" id="add-fr-to" placeholder="FR to">
+      </div>
+      <div class="row"><input type="text" id="add-ref" placeholder="Reference (e.g. 25-44-11)"></div>
+      <div class="row">
+        <input type="text" id="add-x" placeholder="x 0–100">
+        <input type="text" id="add-y" placeholder="y 0–100">
+      </div>
+      <button class="btn" id="add-save" style="margin-top:6px">Add to current aircraft</button>
+      <div id="add-msg" style="margin-top:6px;color:var(--muted);font-size:11px"></div>
+    </div>
+    <div class="section">
+      <h3>Data</h3>
+      <button class="btn" id="export-btn">Export JSON (current aircraft)</button>
+      <button class="btn" id="import-btn" style="margin-top:6px">Import JSON</button>
+      <input type="file" id="import-file" accept="application/json,.json" style="display:none">
+      <div id="data-msg" style="margin-top:6px;color:var(--muted);font-size:11px"></div>
+    </div>
+    <div class="section">
+      <h3>Results (<span id="count">0</span>)</h3>
+    </div>
+    <ul class="results" id="results"></ul>
+  </aside>
+
+  <main>
+    <div class="map-wrap">
+      <svg class="cabin" id="svg" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet">
+        <!-- Layers populated by JS -->
+        <g id="layer-fuselage"></g>
+        <g id="layer-cargo"></g>
+        <g id="layer-zones"></g>
+        <g id="layer-frames"></g>
+        <g id="layer-doors"></g>
+        <g id="layer-seats"></g>
+        <g id="layer-leaders"></g>
+        <g id="layer-hotspots"></g>
+        <g id="layer-labels"></g>
+      </svg>
+      <div class="print-only" id="print-area" style="padding:14px"></div>
+      <div class="legend">
+        <span><span class="sw lav"></span>Lavatory</span>
+        <span><span class="sw gal"></span>Galley</span>
+        <span><span class="sw pel"></span>Pelmet</span>
+        <span><span class="sw cel"></span>Ceiling</span>
+        <span><span class="sw par"></span>Partition</span>
+        <span><span class="sw flr"></span>Floor</span>
+        <span><span class="sw zone"></span>Zone</span>
+        <span><span class="sw cargo"></span>Cargo</span>
+      </div>
+      <div class="toolbar">
+        <button id="zoom-in">+</button>
+        <button id="zoom-out">−</button>
+        <button id="zoom-reset">⤺</button>
+      </div>
+      <div class="tip" id="tip"></div>
+    </div>
+  </main>
+
+  <aside class="right" id="detail">
+    <div class="empty">Bir nokta seç veya sol panelden arama yap.</div>
+  </aside>
+</div>
+
+<script>
+/* ============================================================
+   A330 Cabin Map — single-file MVP
+   ============================================================ */
+
+/* ---------- DATA ---------- */
+// Per-aircraft definitions. All x values are 0..100 along usable cabin length.
+// y values: 0 = top side of fuselage, 100 = bottom side. 50 = centerline.
+// Real LOPA values must be confirmed against AMM/IPC — these are starter data.
+
+const aircraftDefs = {
+  "A330-300": {
+    // Visual proportions on the map (fraction of available width used for fuselage body)
+    bodyFrac: 1.00,
+    wingX: 50,           // wing root center along cabin length (0..100)
+    // Engine nacelles (relative to wingX; offset along Y from fuselage edge)
+    engines: [
+      { side: "left",  xOff: 8, yOff: 22 },
+      { side: "right", xOff: 8, yOff: 22 }
+    ],
+    // Cargo compartments (below main deck — overlaid as dashed boxes)
+    cargo: [
+      { id: "FWD",  x1: 22, x2: 46, label: "FWD CARGO",  volume: "107 m³ (3778.6 ft³)" },
+      { id: "AFT",  x1: 54, x2: 75, label: "AFT CARGO",  volume: "85.7 m³ (3026.5 ft³)" },
+      { id: "BULK", x1: 75, x2: 88, label: "BULK CARGO", volume: "22.7 m³ (801.6 ft³)" }
+    ],
+    zones: [
+      { id: "Z210", x1:  2, x2: 12 },
+      { id: "Z220", x1: 12, x2: 28 },
+      { id: "Z230", x1: 28, x2: 38 },
+      { id: "Z240", x1: 38, x2: 52 },
+      { id: "Z250", x1: 52, x2: 66 },
+      { id: "Z260", x1: 66, x2: 82 },
+      { id: "Z270", x1: 82, x2: 95 }
+    ],
+    frames: [
+      { id: "FR1",  x:  2 }, { id: "FR11", x: 12 }, { id: "FR22", x: 24 },
+      { id: "FR30", x: 32 }, { id: "FR36", x: 38 }, { id: "FR42", x: 44 },
+      { id: "FR50", x: 52 }, { id: "FR60", x: 64 }, { id: "FR70", x: 74 },
+      { id: "FR75", x: 80 }, { id: "FR82", x: 86 }, { id: "FR91", x: 94 }
+    ],
+    doors: [
+      { id: "DOOR 1L/R", x:  6 }, { id: "DOOR 2L/R", x: 28 },
+      { id: "DOOR 3L/R", x: 60 }, { id: "DOOR 4L/R", x: 88 }
+    ],
+    items: [
+      // LAVATORIES
+      { id: "LAV-A-L11", type: "lavatory", name: "Lavatory A", location: "L11",
+        code: "5001MT", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
+        reference: "25-41-41", x: 18, y: 35, description: "Forward lavatory area" },
+      { id: "LAV-K-L34", type: "lavatory", name: "Lavatory K", location: "L34",
+        code: "5003MT", zone: ["Z230", "Z240"], frames: { from: "FR30", to: "FR36" },
+        reference: "25-42-42", x: 36, y: 65, description: "Mid cabin lavatory area" },
+      { id: "LAV-Y-L73", type: "lavatory", name: "Lavatory Y", location: "L73",
+        code: "5012MT", zone: ["Z260", "Z270"], frames: { from: "FR70", to: "FR75" },
+        reference: "25-43-41", x: 78, y: 35, description: "Aft lavatory area" },
+      { id: "LAV-Z-L74", type: "lavatory", name: "Lavatory Z", location: "L74",
+        code: "5005MT", zone: ["Z260", "Z270"], frames: { from: "FR70", to: "FR75" },
+        reference: "25-43-42", x: 82, y: 65, description: "Aft lavatory area" },
+
+      // FWD GALLEYS (G1 cluster, Z210–Z230, FR11–FR20, around FWD PAX DOOR)
+      { id: "GAL-G1F", type: "galley", name: "Galley G1F", location: "L1",
+        code: "6489ML", zone: ["Z210", "Z220", "Z230"], frames: { from: "FR11", to: "FR20" },
+        reference: "25-31-59", x: 11, y: 50, description: "FWD galley, forward of FWD pax door" },
+      { id: "GAL-G1A", type: "galley", name: "Galley G1A", location: "L4",
+        code: "6491ML", zone: ["Z210", "Z220", "Z230"], frames: { from: "FR11", to: "FR20" },
+        reference: "25-31-51", x: 17, y: 50, description: "FWD galley, aft of FWD pax door" },
+
+      // MID GALLEYS (G2 cluster, Z240–Z250, FR32–FR37.1)
+      { id: "GAL-G2F", type: "galley", name: "Galley G2F", location: "L40",
+        code: "6505ML", zone: ["Z240", "Z250"], frames: { from: "FR32", to: "FR37" },
+        reference: "25-32-61", x: 34, y: 35, description: "Mid galley, forward" },
+      { id: "GAL-G2A", type: "galley", name: "Galley G2A", location: "L41",
+        code: "6506ML", zone: ["Z240", "Z250"], frames: { from: "FR32", to: "FR37" },
+        reference: "25-32-62", x: 38, y: 65, description: "Mid galley, aft" },
+      { id: "PEL-G2", type: "pelmet", name: "Pelmet G2F/G2A", location: "L42",
+        code: "6517ML", zone: ["Z240", "Z250"], frames: { from: "FR32", to: "FR37" },
+        reference: "25-32-65", x: 36, y: 15, description: "Overhead pelmet above G2 galleys" },
+
+      // AFT GALLEYS (G4 cluster, Z270, FR72–FR80)
+      { id: "GAL-G4F", type: "galley", name: "Galley G4F", location: "L78",
+        code: "6525ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
+        reference: "25-33-56", x: 74, y: 50, description: "AFT galley, forward of aft cluster" },
+      { id: "GAL-G4L", type: "galley", name: "Galley G4L", location: "L79",
+        code: "6529ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
+        reference: "25-33-53", x: 80, y: 30, description: "AFT galley, port" },
+      { id: "GAL-G4R", type: "galley", name: "Galley G4R", location: "L80",
+        code: "6528ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
+        reference: "25-33-52", x: 80, y: 70, description: "AFT galley, starboard" },
+      { id: "CEL-G4", type: "ceiling", name: "Ceiling G4R/G4L", location: "L81",
+        code: "6532ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
+        reference: "25-33-54", x: 82, y: 15, description: "AFT galley ceiling assy" },
+      { id: "PAR-AFT", type: "partition", name: "AFT Partition", location: "L82",
+        code: "6535ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
+        reference: "25-33-55", x: 87, y: 50, description: "AFT cabin partition" },
+
+      // FLOOR PANELS (cabin / cargo — sample set, replace with real AMM 53 refs)
+      { id: "FLR-FWD-CABIN", type: "floor", name: "FWD Cabin Floor Panels", location: "F10",
+        code: "53A11", zone: ["Z210", "Z220"], frames: { from: "FR11", to: "FR22" },
+        reference: "53-12-11", x: 16, y: 50, description: "Forward cabin floor panel area" },
+      { id: "FLR-MID-CABIN", type: "floor", name: "MID Cabin Floor Panels", location: "F40",
+        code: "53A21", zone: ["Z240", "Z250"], frames: { from: "FR36", to: "FR50" },
+        reference: "53-12-21", x: 45, y: 50, description: "Mid cabin floor panel area" },
+      { id: "FLR-AFT-CABIN", type: "floor", name: "AFT Cabin Floor Panels", location: "F70",
+        code: "53A31", zone: ["Z260", "Z270"], frames: { from: "FR65", to: "FR80" },
+        reference: "53-12-31", x: 72, y: 50, description: "Aft cabin floor panel area" },
+      { id: "FLR-FWD-CARGO", type: "floor", name: "FWD Cargo Floor Panels", location: "F50",
+        code: "53C11", zone: ["Z140"], frames: { from: "FR22", to: "FR47" },
+        reference: "53-13-11", x: 34, y: 88, description: "FWD cargo compartment floor (107 m³ area)" },
+      { id: "FLR-AFT-CARGO", type: "floor", name: "AFT Cargo Floor Panels", location: "F60",
+        code: "53C21", zone: ["Z150"], frames: { from: "FR47", to: "FR65" },
+        reference: "53-13-21", x: 64, y: 88, description: "AFT cargo compartment floor (85.7 m³ area)" },
+      { id: "FLR-BULK-CARGO", type: "floor", name: "BULK Cargo Floor Panels", location: "F65",
+        code: "53C31", zone: ["Z160"], frames: { from: "FR65", to: "FR75" },
+        reference: "53-13-31", x: 81, y: 88, description: "Bulk cargo compartment floor (22.7 m³ area)" }
+    ]
+  },
+  "A321": {
+    bodyFrac: 0.92,
+    wingX: 48,
+    zones: [
+      { id: "Z100", x1:  2, x2: 18 },
+      { id: "Z200", x1: 18, x2: 50 },
+      { id: "Z300", x1: 50, x2: 80 },
+      { id: "Z400", x1: 80, x2: 96 }
+    ],
+    frames: [
+      { id: "FR1",  x:  2 }, { id: "FR15", x: 16 }, { id: "FR25", x: 30 },
+      { id: "FR35", x: 44 }, { id: "FR47", x: 58 }, { id: "FR60", x: 72 },
+      { id: "FR70", x: 84 }, { id: "FR80", x: 94 }
+    ],
+    doors: [
+      { id: "DOOR 1L/R", x:  6 }, { id: "DOOR 2L/R", x: 22 },
+      { id: "DOOR 3L/R", x: 72 }, { id: "DOOR 4L/R", x: 90 }
+    ],
+    items: [
+      { id: "A321-LAV-A-L11", type: "lavatory", name: "Lavatory A", location: "L11",
+        code: "5001MT", zone: ["Z100"], frames: { from: "FR15", to: "FR20" },
+        reference: "25-41-11", x: 14, y: 35, description: "FWD lavatory (sample)" },
+      { id: "A321-LAV-D-L73", type: "lavatory", name: "Lavatory D", location: "L73",
+        code: "5005MT", zone: ["Z400"], frames: { from: "FR70", to: "FR75" },
+        reference: "25-43-11", x: 86, y: 35, description: "AFT lavatory L (sample)" },
+      { id: "A321-LAV-E-L74", type: "lavatory", name: "Lavatory E", location: "L74",
+        code: "5006MT", zone: ["Z400"], frames: { from: "FR70", to: "FR75" },
+        reference: "25-43-12", x: 86, y: 65, description: "AFT lavatory R (sample)" },
+      { id: "A321-GAL-G1-L1", type: "galley", name: "Galley G1", location: "L1",
+        code: "5101MT", zone: ["Z100"], frames: { from: "FR1", to: "FR8" },
+        reference: "25-31-11", x: 6, y: 50, description: "FWD galley (sample)" },
+      { id: "A321-GAL-G2-L80", type: "galley", name: "Galley G2", location: "L80",
+        code: "5104MT", zone: ["Z400"], frames: { from: "FR75", to: "FR80" },
+        reference: "25-33-11", x: 92, y: 50, description: "AFT galley (sample)" }
+    ]
+  },
+  "A320": {
+    bodyFrac: 0.80,
+    wingX: 50,
+    zones: [
+      { id: "Z100", x1:  2, x2: 22 },
+      { id: "Z200", x1: 22, x2: 75 },
+      { id: "Z300", x1: 75, x2: 96 }
+    ],
+    frames: [
+      { id: "FR1",  x:  2 }, { id: "FR14", x: 18 }, { id: "FR24", x: 32 },
+      { id: "FR36", x: 48 }, { id: "FR47", x: 62 }, { id: "FR60", x: 78 },
+      { id: "FR70", x: 92 }
+    ],
+    doors: [
+      { id: "DOOR 1L/R", x:  6 }, { id: "DOOR 2L/R", x: 26 },
+      { id: "DOOR 3L/R", x: 74 }, { id: "DOOR 4L/R", x: 90 }
+    ],
+    items: [
+      { id: "A320-LAV-A-L11", type: "lavatory", name: "Lavatory A", location: "L11",
+        code: "5001MT", zone: ["Z100"], frames: { from: "FR14", to: "FR18" },
+        reference: "25-41-11", x: 18, y: 35, description: "FWD lavatory (sample)" },
+      { id: "A320-LAV-D-L73", type: "lavatory", name: "Lavatory D", location: "L73",
+        code: "5005MT", zone: ["Z300"], frames: { from: "FR65", to: "FR68" },
+        reference: "25-43-11", x: 86, y: 35, description: "AFT lavatory L (sample)" },
+      { id: "A320-LAV-E-L74", type: "lavatory", name: "Lavatory E", location: "L74",
+        code: "5006MT", zone: ["Z300"], frames: { from: "FR65", to: "FR68" },
+        reference: "25-43-12", x: 86, y: 65, description: "AFT lavatory R (sample)" },
+      { id: "A320-GAL-G1-L1", type: "galley", name: "Galley G1", location: "L1",
+        code: "5101MT", zone: ["Z100"], frames: { from: "FR1", to: "FR8" },
+        reference: "25-31-11", x: 6, y: 50, description: "FWD galley (sample)" },
+      { id: "A320-GAL-G2-L80", type: "galley", name: "Galley G2", location: "L80",
+        code: "5104MT", zone: ["Z300"], frames: { from: "FR68", to: "FR70" },
+        reference: "25-33-11", x: 92, y: 50, description: "AFT galley (sample)" }
+    ]
+  },
+  "A319": {
+    bodyFrac: 0.72,
+    wingX: 50,
+    zones: [
+      { id: "Z100", x1:  2, x2: 24 },
+      { id: "Z200", x1: 24, x2: 72 },
+      { id: "Z300", x1: 72, x2: 96 }
+    ],
+    frames: [
+      { id: "FR1",  x:  2 }, { id: "FR12", x: 18 }, { id: "FR22", x: 34 },
+      { id: "FR32", x: 50 }, { id: "FR42", x: 66 }, { id: "FR55", x: 82 },
+      { id: "FR65", x: 94 }
+    ],
+    doors: [
+      { id: "DOOR 1L/R", x:  6 }, { id: "DOOR 2L/R", x: 28 },
+      { id: "DOOR 3L/R", x: 72 }, { id: "DOOR 4L/R", x: 90 }
+    ],
+    items: [
+      { id: "A319-LAV-A-L11", type: "lavatory", name: "Lavatory A", location: "L11",
+        code: "5001MT", zone: ["Z100"], frames: { from: "FR12", to: "FR16" },
+        reference: "25-41-11", x: 16, y: 35, description: "FWD lavatory (sample)" },
+      { id: "A319-LAV-D-L73", type: "lavatory", name: "Lavatory D", location: "L73",
+        code: "5005MT", zone: ["Z300"], frames: { from: "FR55", to: "FR58" },
+        reference: "25-43-11", x: 86, y: 35, description: "AFT lavatory L (sample)" },
+      { id: "A319-GAL-G1-L1", type: "galley", name: "Galley G1", location: "L1",
+        code: "5101MT", zone: ["Z100"], frames: { from: "FR1", to: "FR8" },
+        reference: "25-31-11", x: 6, y: 50, description: "FWD galley (sample)" },
+      { id: "A319-GAL-G2-L80", type: "galley", name: "Galley G2", location: "L80",
+        code: "5104MT", zone: ["Z300"], frames: { from: "FR58", to: "FR62" },
+        reference: "25-33-11", x: 92, y: 50, description: "AFT galley (sample)" }
+    ]
+  }
+};
+
+// Custom items added through the UI are persisted in localStorage, keyed by aircraft id.
+const CUSTOM_KEY = "a330-cabin-custom-v1";
+function loadCustom() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveCustom(map) {
+  localStorage.setItem(CUSTOM_KEY, JSON.stringify(map));
+}
+
+let CURRENT_AC = "A330-300";
+function currentDef() { return aircraftDefs[CURRENT_AC]; }
+function currentItems() {
+  const base = currentDef().items || [];
+  const extra = (loadCustom()[CURRENT_AC] || []);
+  return base.concat(extra);
+}
+// Convenience aliases used by the rest of the code
+let cabinItems = [], zones = [], frames = [], doors = [];
+function loadAircraft(id) {
+  CURRENT_AC = id;
+  cabinItems = currentItems();
+  zones  = currentDef().zones;
+  frames = currentDef().frames;
+  doors  = currentDef().doors;
+}
+
+/* ---------- LAYOUT ---------- */
+// SVG viewBox: 1000 x 260
+const VB_W = 1000, VB_H = 260;
+const MARGIN_X = 40;
+const FUS_TOP = 70;
+const FUS_BOT = 200;
+const FUS_W = VB_W - MARGIN_X * 2;
+
+function xPct(p) {
+  const g = window.__GEO;
+  if (g) return g.noseX + (p / 100) * g.usableW;
+  return MARGIN_X + (p / 100) * FUS_W;
+}
+const yPct = p => FUS_TOP + (p / 100) * (FUS_BOT - FUS_TOP);
+
+/* ---------- RENDER ---------- */
+const $ = s => document.querySelector(s);
+const svg = $("#svg");
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, parent) {
+  const n = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+
+function renderFuselage() {
+  const g = $("#layer-fuselage"); g.innerHTML = "";
+  const def = currentDef();
+  // Scale fuselage length to selected aircraft (visual cue: A319 < A320 < A321 < A330)
+  const usableW = (VB_W - MARGIN_X * 2) * def.bodyFrac;
+  const noseX = MARGIN_X + ((VB_W - MARGIN_X * 2) - usableW) / 2;
+  const tailX = noseX + usableW;
+  const top = FUS_TOP, bot = FUS_BOT, midY = (top + bot) / 2;
+  const noseLen = 36, tailLen = 60;
+
+  // Wings — drawn first so fuselage overlaps them
+  const wingCx = noseX + (def.wingX / 100) * usableW;
+  el("path", {
+    d: `M ${wingCx - 30} ${bot - 4}
+        Q ${wingCx + 20} ${bot + 60}, ${wingCx + 80} ${bot + 18}
+        Q ${wingCx + 20} ${bot + 8}, ${wingCx - 10} ${bot}`,
+    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": "1"
+  }, g);
+  el("path", {
+    d: `M ${wingCx - 30} ${top + 4}
+        Q ${wingCx + 20} ${top - 60}, ${wingCx + 80} ${top - 18}
+        Q ${wingCx + 20} ${top - 8}, ${wingCx - 10} ${top}`,
+    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": "1"
+  }, g);
+
+  // Engine nacelles (wing-mounted, top-down ovals)
+  (def.engines || []).forEach(en => {
+    const yc = en.side === "left" ? top - en.yOff : bot + en.yOff;
+    const xc = wingCx + en.xOff;
+    el("ellipse", { cx: xc, cy: yc, rx: 11, ry: 5, class: "nacelle" }, g);
+    // Intake hint
+    el("ellipse", { cx: xc - 9, cy: yc, rx: 1.5, ry: 3, fill: "#1e293b" }, g);
+  });
+  // Horizontal stabilizer near tail
+  const hsX = tailX - 28;
+  el("path", {
+    d: `M ${hsX} ${bot - 4} Q ${hsX + 14} ${bot + 22}, ${hsX + 36} ${bot + 8} Q ${hsX + 18} ${bot + 4}, ${hsX + 6} ${bot}`,
+    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": "1"
+  }, g);
+  el("path", {
+    d: `M ${hsX} ${top + 4} Q ${hsX + 14} ${top - 22}, ${hsX + 36} ${top - 8} Q ${hsX + 18} ${top - 4}, ${hsX + 6} ${top}`,
+    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": "1"
+  }, g);
+
+  // Fuselage with pointed nose (round) and tapered tail
+  const path = [
+    `M ${noseX + noseLen} ${top}`,
+    `L ${tailX - tailLen} ${top}`,
+    `Q ${tailX - 8} ${top + 6}, ${tailX} ${midY}`,
+    `Q ${tailX - 8} ${bot - 6}, ${tailX - tailLen} ${bot}`,
+    `L ${noseX + noseLen} ${bot}`,
+    `Q ${noseX} ${bot - 8}, ${noseX - 4} ${midY}`,
+    `Q ${noseX} ${top + 8}, ${noseX + noseLen} ${top} Z`
+  ].join(" ");
+  el("path", { d: path, class: "fuselage" }, g);
+
+  // Cockpit windshield hint (top-down: small arc band just behind nose tip)
+  el("path", {
+    d: `M ${noseX + 6} ${midY - 8} Q ${noseX + 18} ${midY - 14}, ${noseX + 28} ${midY - 10}
+        L ${noseX + 28} ${midY + 10} Q ${noseX + 18} ${midY + 14}, ${noseX + 6} ${midY + 8} Z`,
+    fill: "#cbd5e1", stroke: "#475569", "stroke-width": "0.8"
+  }, g);
+  // Vertical stabilizer (top-down view: rendered as a centerline diamond at the tail)
+  el("path", {
+    d: `M ${tailX - 36} ${midY} L ${tailX - 14} ${midY - 14} L ${tailX - 4} ${midY} L ${tailX - 14} ${midY + 14} Z`,
+    fill: "#94a3b8", stroke: "#334155", "stroke-width": "0.8"
+  }, g);
+
+  // FWD / AFT direction labels
+  el("text", { x: noseX - 6, y: midY - 36, "text-anchor": "middle",
+    fill: "#0f172a", "font-size": "12", "font-weight": "700",
+    "font-family": "ui-monospace, Menlo, monospace"
+  }, g).textContent = "◄ FWD / NOSE";
+  el("text", { x: tailX + 4, y: midY - 36, "text-anchor": "middle",
+    fill: "#0f172a", "font-size": "12", "font-weight": "700",
+    "font-family": "ui-monospace, Menlo, monospace"
+  }, g).textContent = "AFT / TAIL ►";
+
+  // Aircraft watermark
+  el("text", { x: (noseX + tailX) / 2, y: midY + 4, "text-anchor": "middle",
+    fill: "rgba(15,23,42,0.08)", "font-size": "48", "font-weight": "800",
+    "font-family": "ui-sans-serif"
+  }, g).textContent = CURRENT_AC;
+
+  // Stash the geometry so other layers can use it
+  window.__GEO = { noseX, tailX, usableW, top, bot, midY };
+}
+
+function renderZones() {
+  const g = $("#layer-zones"); g.innerHTML = "";
+  if (!$("#f-zone").checked) return;
+  zones.forEach(z => {
+    el("rect", {
+      x: xPct(z.x1), y: FUS_TOP + 4,
+      width: xPct(z.x2) - xPct(z.x1),
+      height: (FUS_BOT - FUS_TOP) - 8,
+      class: "zone-shape",
+      "data-zone": z.id
+    }, g);
+    el("text", {
+      x: (xPct(z.x1) + xPct(z.x2)) / 2,
+      y: FUS_TOP - 4,
+      "text-anchor": "middle",
+      class: "zone-label"
+    }, g).textContent = z.id;
+  });
+}
+
+function renderFrames() {
+  const g = $("#layer-frames"); g.innerHTML = "";
+  if (!$("#f-frame").checked) return;
+  frames.forEach(f => {
+    const x = xPct(f.x);
+    el("line", { x1: x, x2: x, y1: FUS_TOP, y2: FUS_BOT, class: "frame-line" }, g);
+    el("text", {
+      x: x, y: FUS_BOT + 14,
+      "text-anchor": "middle", class: "frame-label"
+    }, g).textContent = f.id;
+  });
+}
+
+function renderDoors() {
+  const g = $("#layer-doors"); g.innerHTML = "";
+  doors.forEach(d => {
+    const x = xPct(d.x);
+    el("line", { x1: x, x2: x, y1: FUS_TOP - 6, y2: FUS_TOP, class: "door-line" }, g);
+    el("line", { x1: x, x2: x, y1: FUS_BOT, y2: FUS_BOT + 6, class: "door-line" }, g);
+    el("text", {
+      x: x, y: FUS_TOP - 10,
+      "text-anchor": "middle", class: "door-label"
+    }, g).textContent = d.id;
+  });
+}
+
+function renderCargo() {
+  const g = $("#layer-cargo"); g.innerHTML = "";
+  if (!$("#f-cargo").checked) return;
+  const def = currentDef();
+  if (!def.cargo || !def.cargo.length) return;
+  const top = FUS_TOP, bot = FUS_BOT;
+  // Cargo bay sits below main deck; in top-down view, overlay as dashed rects
+  // along the lower belly band (y just inside the fuselage bottom).
+  const ct = top + (bot - top) * 0.62;
+  const cb = top + (bot - top) * 0.95;
+  def.cargo.forEach(c => {
+    const x1 = xPct(c.x1), x2 = xPct(c.x2);
+    el("rect", {
+      x: x1, y: ct, width: x2 - x1, height: cb - ct,
+      class: "cargo-rect", "data-cargo": c.id
+    }, g);
+    el("text", {
+      x: (x1 + x2) / 2, y: ct + 14, "text-anchor": "middle", class: "cargo-label"
+    }, g).textContent = c.label;
+    if (c.volume) {
+      el("text", {
+        x: (x1 + x2) / 2, y: ct + 26, "text-anchor": "middle", class: "cargo-sub"
+      }, g).textContent = c.volume;
+    }
+  });
+}
+
+function renderSeats() {
+  const g = $("#layer-seats"); g.innerHTML = "";
+  // Lightweight seat row hint stripes (decorative)
+  for (let i = 14; i < 94; i += 2) {
+    el("rect", {
+      x: xPct(i) - 0.5, y: FUS_TOP + 12,
+      width: 1, height: FUS_BOT - FUS_TOP - 24,
+      fill: "#eef2f7"
+    }, g);
+  }
+}
+
+let SELECTED_ID = null;
+let FILTERED_IDS = null; // null = no filter; else Set of IDs
+
+const typeMeta = {
+  lavatory:  { cls: "lav", shape: "circle",   filter: "f-lav" },
+  galley:    { cls: "gal", shape: "rect",     filter: "f-gal" },
+  pelmet:    { cls: "pel", shape: "diamond",  filter: "f-pel" },
+  ceiling:   { cls: "cel", shape: "triangle", filter: "f-cel" },
+  partition: { cls: "par", shape: "vbar",     filter: "f-par" },
+  floor:     { cls: "flr", shape: "square",   filter: "f-flr" }
+};
+function typeMetaOf(t) { return typeMeta[t] || { cls: "gal", shape: "rect", filter: "f-gal" }; }
+
+function computeSpread(items) {
+  // For each item compute (drawX, drawY). If multiple items fall within OVERLAP_R
+  // of each other, fan them around the cluster center.
+  const OVERLAP_R = 14;   // svg units
+  const FAN_R     = 16;   // distance from cluster center
+  const pts = items.map(it => ({ it, cx: xPct(it.x), cy: yPct(it.y) }));
+  if (!$("#f-spread").checked) {
+    return pts.map(p => ({ it: p.it, ox: p.cx, oy: p.cy, dx: p.cx, dy: p.cy, fanned: false }));
+  }
+  // Greedy clustering
+  const clusters = [];
+  pts.forEach(p => {
+    const c = clusters.find(cl =>
+      cl.some(m => Math.hypot(m.cx - p.cx, m.cy - p.cy) < OVERLAP_R));
+    if (c) c.push(p); else clusters.push([p]);
+  });
+  const out = [];
+  clusters.forEach(cl => {
+    if (cl.length === 1) {
+      const p = cl[0];
+      out.push({ it: p.it, ox: p.cx, oy: p.cy, dx: p.cx, dy: p.cy, fanned: false });
+      return;
+    }
+    const cx = cl.reduce((s, p) => s + p.cx, 0) / cl.length;
+    const cy = cl.reduce((s, p) => s + p.cy, 0) / cl.length;
+    const r  = FAN_R + Math.max(0, cl.length - 2) * 3;
+    cl.forEach((p, i) => {
+      const a = (Math.PI * 2 * i) / cl.length - Math.PI / 2;
+      out.push({
+        it: p.it,
+        ox: p.cx, oy: p.cy,
+        dx: cx + Math.cos(a) * r,
+        dy: cy + Math.sin(a) * r,
+        fanned: true
+      });
+    });
+  });
+  return out;
+}
+
+function renderHotspots() {
+  const g = $("#layer-hotspots"); g.innerHTML = "";
+  const ld = $("#layer-leaders"); ld.innerHTML = "";
+  const labels = $("#layer-labels"); labels.innerHTML = "";
+  const showCode = $("#f-code").checked;
+  const showLabels = $("#f-labels").checked;
+
+  // Pre-filter by type visibility so spread only considers visible items
+  const visibleItems = cabinItems.filter(it => {
+    const meta = typeMetaOf(it.type);
+    const cb = $("#" + meta.filter);
+    return !cb || cb.checked;
+  });
+
+  const placements = computeSpread(visibleItems);
+
+  placements.forEach(({ it, ox, oy, dx, dy, fanned }) => {
+    const meta = typeMetaOf(it.type);
+    const cx = dx, cy = dy;
+    const cls =
+      "hotspot " + meta.cls +
+      (SELECTED_ID === it.id ? " selected" : "") +
+      (FILTERED_IDS && !FILTERED_IDS.has(it.id) ? " dim" : "");
+
+    if (fanned) {
+      el("line", { x1: ox, y1: oy, x2: cx, y2: cy, class: "leader" }, ld);
+      el("circle", { cx: ox, cy: oy, r: 1.5, fill: "#475569" }, ld);
+    }
+
+    let node;
+    switch (meta.shape) {
+      case "circle":
+        node = el("circle", { cx, cy, r: 8, class: cls, "data-id": it.id }, g);
+        break;
+      case "rect":
+        node = el("rect", {
+          x: cx - 9, y: cy - 7, width: 18, height: 14, rx: 2, ry: 2,
+          class: cls, "data-id": it.id
+        }, g);
+        break;
+      case "diamond":
+        node = el("polygon", {
+          points: `${cx},${cy - 8} ${cx + 8},${cy} ${cx},${cy + 8} ${cx - 8},${cy}`,
+          class: cls, "data-id": it.id
+        }, g);
+        break;
+      case "triangle":
+        node = el("polygon", {
+          points: `${cx - 8},${cy - 6} ${cx + 8},${cy - 6} ${cx},${cy + 8}`,
+          class: cls, "data-id": it.id
+        }, g);
+        break;
+      case "vbar":
+        node = el("rect", {
+          x: cx - 3, y: cy - 12, width: 6, height: 24, rx: 1, ry: 1,
+          class: cls, "data-id": it.id
+        }, g);
+        break;
+      case "square":
+        node = el("rect", {
+          x: cx - 7, y: cy - 7, width: 14, height: 14, rx: 1, ry: 1,
+          class: cls, "data-id": it.id
+        }, g);
+        break;
+      default:
+        node = el("rect", {
+          x: cx - 9, y: cy - 7, width: 18, height: 14, rx: 2, ry: 2,
+          class: cls, "data-id": it.id
+        }, g);
+    }
+
+    node.addEventListener("click", () => selectItem(it.id));
+    node.addEventListener("mouseenter", e => showTip(e, it));
+    node.addEventListener("mousemove", moveTip);
+    node.addEventListener("mouseleave", hideTip);
+
+    if (showLabels) {
+      const lines = [];
+      lines.push(it.location);
+      if (showCode && it.code) lines.push(it.code);
+      lines.forEach((t, i) => {
+        el("text", {
+          x: cx, y: cy + 22 + i * 10,
+          "text-anchor": "middle", class: "hotspot-label"
+        }, labels).textContent = t;
+      });
+    }
+  });
+}
+
+/* ---------- TOOLTIP ---------- */
+const tip = $("#tip");
+function showTip(e, it) {
+  tip.innerHTML =
+    `<b>${it.name}</b> ${it.location}<br>` +
+    `Zone: ${it.zone.join("/")}` +
+    (it.code ? `<br>Code: ${it.code}` : "");
+  tip.classList.add("on");
+  moveTip(e);
+}
+function moveTip(e) {
+  const rect = $(".map-wrap").getBoundingClientRect();
+  tip.style.left = (e.clientX - rect.left) + "px";
+  tip.style.top  = (e.clientY - rect.top)  + "px";
+}
+function hideTip() { tip.classList.remove("on"); }
+
+/* ---------- SELECT / DETAIL ---------- */
+function selectItem(id) {
+  SELECTED_ID = id;
+  renderHotspots();
+  renderDetail();
+  renderResults(); // highlight in list
+}
+
+function renderDetail() {
+  const box = $("#detail");
+  if (!SELECTED_ID) {
+    box.innerHTML = `<div class="empty">Bir nokta seç veya sol panelden arama yap.</div>`;
+    return;
+  }
+  const it = cabinItems.find(x => x.id === SELECTED_ID);
+  if (!it) { box.innerHTML = `<div class="empty">Bulunamadı.</div>`; return; }
+  const fr = it.frames ? `${it.frames.from} – ${it.frames.to}` : "—";
+  const note = loadNote(it.id);
+  const meta = typeMetaOf(it.type);
+  const isCustom = isCustomItem(it.id);
+  box.innerHTML = `
+    <div class="section detail">
+      <span class="pill ${meta.cls}">${it.type.toUpperCase()}</span>
+      ${isCustom ? `<span class="pill" style="margin-left:4px;color:#fde68a;border-color:rgba(253,224,71,.4)">CUSTOM</span>` : ""}
+      <h2>${it.name} <span style="color:var(--muted);font-weight:400">${it.location}</span></h2>
+      <div class="meta">${it.description || ""}</div>
+      <dl class="kv">
+        <dt>Aircraft</dt><dd>${CURRENT_AC}</dd>
+        <dt>Location</dt><dd>${it.location}</dd>
+        <dt>Zone</dt><dd>${(it.zone||[]).join(" / ") || "—"}</dd>
+        <dt>Frame</dt><dd>${fr}</dd>
+        <dt>Equipment</dt><dd>${it.code || "—"}</dd>
+        <dt>Reference</dt><dd>${it.reference || "—"}</dd>
+        <dt>ID</dt><dd>${it.id}</dd>
+      </dl>
+    </div>
+    <div class="section">
+      <h3>Related</h3>
+      <div class="row" style="flex-direction:column;align-items:flex-start;gap:4px">
+        ${it.reference ? `<span class="pill">AMM ${it.reference}</span>
+        <span class="pill">IPC ${it.reference}</span>` : ""}
+        <span class="pill">LOPA Reference</span>
+      </div>
+    </div>
+    <div class="section">
+      <h3>Notes (local)</h3>
+      <textarea id="note" placeholder="Bu lokasyon için not...">${note || ""}</textarea>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="note-save">Save</button>
+        <button class="btn" id="note-clear">Clear</button>
+      </div>
+    </div>
+    ${isCustom ? `
+    <div class="section">
+      <h3>Custom Item</h3>
+      <button class="btn" id="del-custom" style="border-color:rgba(239,68,68,.5);color:#fca5a5">Delete this custom item</button>
+    </div>` : ""}
+  `;
+  $("#note-save").onclick = () => { saveNote(it.id, $("#note").value); flash($("#note-save"), "Saved"); };
+  $("#note-clear").onclick = () => { $("#note").value = ""; saveNote(it.id, ""); };
+  if (isCustom) $("#del-custom").onclick = () => deleteCustomItem(it.id);
+}
+
+function isCustomItem(id) {
+  const all = loadCustom();
+  return (all[CURRENT_AC] || []).some(x => x.id === id);
+}
+function deleteCustomItem(id) {
+  const all = loadCustom();
+  if (!all[CURRENT_AC]) return;
+  all[CURRENT_AC] = all[CURRENT_AC].filter(x => x.id !== id);
+  saveCustom(all);
+  cabinItems = currentItems();
+  SELECTED_ID = null;
+  renderHotspots();
+  applyFilters();
+  renderDetail();
+}
+
+function flash(btn, msg) {
+  const old = btn.textContent; btn.textContent = msg;
+  setTimeout(() => btn.textContent = old, 900);
+}
+
+/* ---------- NOTES (localStorage) ---------- */
+const NOTE_KEY = "a330-cabin-notes-v1";
+function loadAllNotes() {
+  try { return JSON.parse(localStorage.getItem(NOTE_KEY) || "{}"); }
+  catch { return {}; }
+}
+function loadNote(id) { return loadAllNotes()[id] || ""; }
+function saveNote(id, v) {
+  const all = loadAllNotes();
+  if (v && v.trim()) all[id] = v; else delete all[id];
+  localStorage.setItem(NOTE_KEY, JSON.stringify(all));
+}
+
+/* ---------- SEARCH / FILTER ---------- */
+function matches(it, q) {
+  q = q.trim().toLowerCase();
+  if (!q) return true;
+  const hay = [
+    it.id, it.name, it.location, it.code, it.reference,
+    ...(it.zone || []),
+    it.frames ? `${it.frames.from} ${it.frames.to}` : "",
+    it.type
+  ].join(" ").toLowerCase();
+  return hay.includes(q);
+}
+
+function applyFilters() {
+  const q = $("#q").value;
+  const zonePick = $("#zone-pick").value;
+  const frFrom = parseFrame($("#fr-from").value);
+  const frTo = parseFrame($("#fr-to").value);
+
+  const set = new Set();
+  const visible = cabinItems.filter(it => {
+    const meta = typeMetaOf(it.type);
+    const cb = $("#" + meta.filter);
+    if (cb && !cb.checked) return false;
+    if (!matches(it, q)) return false;
+    if (zonePick && !(it.zone || []).includes(zonePick)) return false;
+    if (frFrom != null || frTo != null) {
+      if (!it.frames) return false;
+      const a = parseFrame(it.frames.from), b = parseFrame(it.frames.to);
+      const lo = frFrom != null ? frFrom : -Infinity;
+      const hi = frTo   != null ? frTo   :  Infinity;
+      if (b < lo || a > hi) return false;
+    }
+    return true;
+  });
+  visible.forEach(v => set.add(v.id));
+  FILTERED_IDS = (q || zonePick || frFrom != null || frTo != null) ? set : null;
+  renderHotspots();
+  renderResults(visible);
+}
+
+function parseFrame(s) {
+  if (!s) return null;
+  const m = String(s).match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+const TYPE_SHORT = { lavatory:"LAV", galley:"GAL", pelmet:"PEL", ceiling:"CEL", partition:"PAR", floor:"FLR" };
+
+function renderResults(list) {
+  const ul = $("#results");
+  const items = list || (FILTERED_IDS
+    ? cabinItems.filter(i => FILTERED_IDS.has(i.id))
+    : cabinItems);
+  $("#count").textContent = items.length;
+  ul.innerHTML = items.map(it => {
+    const meta = typeMetaOf(it.type);
+    return `
+    <li data-id="${it.id}" class="${SELECTED_ID === it.id ? "active" : ""}">
+      <div>
+        <div class="name">${it.name} <span style="color:var(--muted)">${it.location}</span></div>
+        <div class="sub">${TYPE_SHORT[it.type] || it.type.toUpperCase()} · ${(it.zone||[]).join("/")} · ${it.code || ""}</div>
+      </div>
+      <span class="pill ${meta.cls}">${it.code || ""}</span>
+    </li>`;
+  }).join("");
+  ul.querySelectorAll("li").forEach(li => {
+    li.onclick = () => selectItem(li.dataset.id);
+  });
+}
+
+/* ---------- ZOOM / PAN ---------- */
+let view = { x: 0, y: 0, w: VB_W, h: VB_H };
+function applyView() {
+  svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+}
+function zoom(factor, cx, cy) {
+  const nw = view.w / factor, nh = view.h / factor;
+  if (nw < 80 || nw > VB_W * 2) return;
+  // zoom toward (cx, cy) in svg coords; if not provided, center
+  const px = cx != null ? cx : view.x + view.w / 2;
+  const py = cy != null ? cy : view.y + view.h / 2;
+  view.x = px - (px - view.x) * (nw / view.w);
+  view.y = py - (py - view.y) * (nh / view.h);
+  view.w = nw; view.h = nh;
+  applyView();
+}
+$("#zoom-in").onclick  = () => zoom(1.25);
+$("#zoom-out").onclick = () => zoom(1/1.25);
+$("#zoom-reset").onclick = () => { view = { x:0, y:0, w:VB_W, h:VB_H }; applyView(); };
+
+// Wheel zoom (toward cursor)
+svg.addEventListener("wheel", e => {
+  e.preventDefault();
+  const pt = svgPoint(e.clientX, e.clientY);
+  zoom(e.deltaY < 0 ? 1.12 : 1/1.12, pt.x, pt.y);
+}, { passive: false });
+
+// Drag pan
+let dragging = false, last = null;
+svg.addEventListener("pointerdown", e => {
+  if (e.target.closest(".hotspot")) return;
+  dragging = true; last = { x: e.clientX, y: e.clientY };
+  svg.setPointerCapture(e.pointerId);
+});
+svg.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const dx = (e.clientX - last.x) * (view.w / svg.clientWidth);
+  const dy = (e.clientY - last.y) * (view.h / svg.clientHeight);
+  view.x -= dx; view.y -= dy;
+  last = { x: e.clientX, y: e.clientY };
+  applyView();
+});
+svg.addEventListener("pointerup",   () => dragging = false);
+svg.addEventListener("pointercancel", () => dragging = false);
+
+function svgPoint(clientX, clientY) {
+  const r = svg.getBoundingClientRect();
+  return {
+    x: view.x + ((clientX - r.left) / r.width)  * view.w,
+    y: view.y + ((clientY - r.top)  / r.height) * view.h
+  };
+}
+
+/* ---------- INIT ---------- */
+function initZonePicker() {
+  const sel = $("#zone-pick");
+  sel.innerHTML = `<option value="">— All zones —</option>`;
+  zones.forEach(z => {
+    const o = document.createElement("option");
+    o.value = z.id; o.textContent = z.id;
+    sel.appendChild(o);
+  });
+}
+
+function renderAll() {
+  renderFuselage();
+  renderCargo();
+  renderZones();
+  renderFrames();
+  renderDoors();
+  renderSeats();
+  renderHotspots();
+}
+
+function switchAircraft(id) {
+  loadAircraft(id);
+  SELECTED_ID = null;
+  FILTERED_IDS = null;
+  // Reset zoom for clean view of the new silhouette
+  view = { x: 0, y: 0, w: VB_W, h: VB_H };
+  applyView();
+  initZonePicker();
+  renderAll();
+  applyFilters();
+  renderDetail();
+}
+
+function handleAddCustom() {
+  const t  = $("#add-type").value;
+  const nm = $("#add-name").value.trim();
+  const lc = $("#add-loc").value.trim();
+  const cd = $("#add-code").value.trim();
+  const zn = $("#add-zone").value.trim();
+  const ff = $("#add-fr-from").value.trim();
+  const ft = $("#add-fr-to").value.trim();
+  const rf = $("#add-ref").value.trim();
+  const xv = parseFloat($("#add-x").value);
+  const yv = parseFloat($("#add-y").value);
+  const msg = $("#add-msg");
+  if (!nm || !lc) { msg.textContent = "Name ve Location zorunlu."; return; }
+  if (isNaN(xv) || isNaN(yv) || xv < 0 || xv > 100 || yv < 0 || yv > 100) {
+    msg.textContent = "x ve y 0–100 aralığında olmalı."; return;
+  }
+  const item = {
+    id: `${CURRENT_AC}-CUSTOM-${Date.now()}`,
+    type: t, name: nm, location: lc,
+    code: cd || null,
+    zone: zn ? zn.split(",").map(s => s.trim()).filter(Boolean) : [],
+    frames: (ff || ft) ? { from: ff, to: ft } : null,
+    reference: rf || null,
+    x: xv, y: yv,
+    description: "Custom entry"
+  };
+  const all = loadCustom();
+  if (!all[CURRENT_AC]) all[CURRENT_AC] = [];
+  all[CURRENT_AC].push(item);
+  saveCustom(all);
+  // Re-load items for current aircraft
+  cabinItems = currentItems();
+  renderHotspots();
+  applyFilters();
+  msg.textContent = `Eklendi: ${item.name} (${item.location}) → ${CURRENT_AC}`;
+  // Clear form
+  ["add-name","add-loc","add-code","add-zone","add-fr-from","add-fr-to","add-ref","add-x","add-y"]
+    .forEach(id => $("#"+id).value = "");
+}
+
+const TYPE_FILTER_IDS = ["f-lav","f-gal","f-pel","f-cel","f-par","f-flr"];
+
+function setAllTypes(state) {
+  TYPE_FILTER_IDS.forEach(id => { $("#" + id).checked = state; });
+  renderHotspots(); applyFilters();
+}
+function invertTypes() {
+  TYPE_FILTER_IDS.forEach(id => { const cb = $("#" + id); cb.checked = !cb.checked; });
+  renderHotspots(); applyFilters();
+}
+
+function buildPrintArea() {
+  const items = (FILTERED_IDS
+    ? cabinItems.filter(i => FILTERED_IDS.has(i.id))
+    : cabinItems).filter(it => {
+      const meta = typeMetaOf(it.type);
+      const cb = $("#" + meta.filter);
+      return !cb || cb.checked;
+    });
+  const rows = items.map(it => `
+    <tr>
+      <td>${TYPE_SHORT[it.type] || it.type}</td>
+      <td>${it.name}</td>
+      <td>${it.location}</td>
+      <td>${(it.zone||[]).join("/")}</td>
+      <td>${it.frames ? it.frames.from + "–" + it.frames.to : ""}</td>
+      <td>${it.code || ""}</td>
+      <td>${it.reference || ""}</td>
+    </tr>
+  `).join("");
+  $("#print-area").innerHTML = `
+    <h1>${CURRENT_AC} Cabin Map — ${items.length} item(s)</h1>
+    <div class="meta">Exported: ${new Date().toLocaleString()} · Filters applied</div>
+    <table>
+      <thead><tr>
+        <th>Type</th><th>Name</th><th>Loc</th><th>Zone</th><th>Frame</th><th>Code</th><th>Ref</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function handlePrint() {
+  buildPrintArea();
+  window.print();
+}
+
+function bindUI() {
+  // Type / overlay filters
+  [...TYPE_FILTER_IDS, "f-zone","f-cargo","f-frame","f-code","f-labels","f-spread"].forEach(id => {
+    const cb = $("#" + id);
+    if (!cb) return;
+    cb.addEventListener("change", () => {
+      renderCargo(); renderZones(); renderFrames(); renderHotspots(); applyFilters();
+    });
+  });
+  $("#sel-all").addEventListener("click",  () => setAllTypes(true));
+  $("#sel-none").addEventListener("click", () => setAllTypes(false));
+  $("#sel-inv").addEventListener("click",  invertTypes);
+
+  $("#q").addEventListener("input", applyFilters);
+  $("#zone-pick").addEventListener("change", applyFilters);
+  $("#fr-apply").addEventListener("click", applyFilters);
+  $("#fr-clear").addEventListener("click", () => {
+    $("#fr-from").value = ""; $("#fr-to").value = ""; applyFilters();
+  });
+  $("#aircraft").addEventListener("change", e => switchAircraft(e.target.value));
+  $("#add-save").addEventListener("click", handleAddCustom);
+  $("#export-btn").addEventListener("click", handleExport);
+  $("#import-btn").addEventListener("click", () => $("#import-file").click());
+  $("#import-file").addEventListener("change", handleImport);
+
+  // Header buttons: print + hide map
+  $("#btn-print").addEventListener("click", handlePrint);
+  $("#btn-hide-map").addEventListener("click", () => {
+    const on = document.body.classList.toggle("hide-map");
+    $("#btn-hide-map").textContent = on ? "Show Map" : "Hide Map";
+  });
+}
+
+function handleExport() {
+  const payload = {
+    aircraft: CURRENT_AC,
+    exportedAt: new Date().toISOString(),
+    builtin: currentDef().items,
+    custom: loadCustom()[CURRENT_AC] || []
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `cabin-map-${CURRENT_AC}-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  $("#data-msg").textContent = `Exported ${payload.builtin.length} built-in + ${payload.custom.length} custom items.`;
+}
+
+function handleImport(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      const incoming = Array.isArray(data) ? data
+        : Array.isArray(data.custom) ? data.custom
+        : Array.isArray(data.items)  ? data.items
+        : null;
+      if (!incoming) throw new Error("No array of items found (expected `custom` or `items` array, or top-level array).");
+      const targetAc = data.aircraft && aircraftDefs[data.aircraft] ? data.aircraft : CURRENT_AC;
+      const all = loadCustom();
+      if (!all[targetAc]) all[targetAc] = [];
+      let added = 0;
+      incoming.forEach(it => {
+        if (!it || !it.type || !it.name || !it.location) return;
+        const newItem = Object.assign({}, it, {
+          id: it.id || `${targetAc}-CUSTOM-${Date.now()}-${Math.random().toString(36).slice(2,6)}`
+        });
+        all[targetAc].push(newItem);
+        added++;
+      });
+      saveCustom(all);
+      if (targetAc !== CURRENT_AC) switchAircraft(targetAc);
+      else { cabinItems = currentItems(); renderHotspots(); applyFilters(); }
+      $("#data-msg").textContent = `Imported ${added} items into ${targetAc}.`;
+    } catch (err) {
+      $("#data-msg").textContent = "Import error: " + err.message;
+    }
+    e.target.value = "";
+  };
+  reader.readAsText(file);
+}
+
+function init() {
+  loadAircraft("A330-300");
+  renderAll();
+  initZonePicker();
+  bindUI();
+  applyFilters();
+  applyView();
+}
+init();
+</script>
+</body>
+</html>
