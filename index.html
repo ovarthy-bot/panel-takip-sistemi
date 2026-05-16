@@ -358,9 +358,7 @@
     <div class="section">
       <h3>Show</h3>
       <div class="mini-btns">
-        <button id="sel-all">All types</button>
-        <button id="sel-none">None</button>
-        <button id="sel-inv">Invert</button>
+        <button id="sel-toggle" title="Press once to select all; press again to restore previous selection">Select all types</button>
       </div>
       <div class="row"><input type="checkbox" id="f-lav" checked><label for="f-lav">Lavatories</label></div>
       <div class="row"><input type="checkbox" id="f-gal" checked><label for="f-gal">Galleys</label></div>
@@ -369,7 +367,7 @@
       <div class="row"><input type="checkbox" id="f-par" checked><label for="f-par">Partitions</label></div>
       <div class="row"><input type="checkbox" id="f-flr" checked><label for="f-flr">Floor Panels</label></div>
       <div class="row"><input type="checkbox" id="f-zone" checked><label for="f-zone">Zones</label></div>
-      <div class="row"><input type="checkbox" id="f-cargo" checked><label for="f-cargo">Cargo Areas</label></div>
+      <div class="row"><input type="checkbox" id="f-cargo" checked><label for="f-cargo">Cabin Areas</label></div>
       <div class="row"><input type="checkbox" id="f-frame" checked><label for="f-frame">Frames</label></div>
       <div class="row"><input type="checkbox" id="f-code" checked><label for="f-code">Equipment Codes</label></div>
       <div class="row"><input type="checkbox" id="f-labels" checked><label for="f-labels">Labels</label></div>
@@ -458,7 +456,7 @@
         <span><span class="sw par"></span>Partition</span>
         <span><span class="sw flr"></span>Floor</span>
         <span><span class="sw zone"></span>Zone</span>
-        <span><span class="sw cargo"></span>Cargo</span>
+        <span><span class="sw cargo"></span>Cabin</span>
       </div>
       <div class="tip" id="tip"></div>
       <div class="map-list-view" id="map-list-view"></div>
@@ -629,6 +627,55 @@ const aircraftDefs = {
       { id: "FLR-282NF", type: "floor", name: "Floor Panel 282NF", location: "L282",
         code: "282NF", zone: ["Z270"], frames: { from: "FR75", to: "FR82" },
         reference: "53-15-82", x: 84, y: 60, description: "AFT cabin floor panel, starboard" },
+      // QF variants — paired with the NF set at the same positions
+      { id: "FLR-111QF", type: "floor", name: "Floor Panel 111QF", location: "L111",
+        code: "111QF", zone: ["Z210"], frames: { from: "FR1", to: "FR11" },
+        reference: "53-15-11Q", x: 7, y: 35, description: "FWD cabin floor panel (Q variant), port" },
+      { id: "FLR-112QF", type: "floor", name: "Floor Panel 112QF", location: "L112",
+        code: "112QF", zone: ["Z210"], frames: { from: "FR1", to: "FR11" },
+        reference: "53-15-12Q", x: 7, y: 65, description: "FWD cabin floor panel (Q variant), starboard" },
+      { id: "FLR-121QF", type: "floor", name: "Floor Panel 121QF", location: "L121",
+        code: "121QF", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
+        reference: "53-15-21Q", x: 19, y: 40, description: "FWD cabin floor panel (Q variant), port" },
+      { id: "FLR-122QF", type: "floor", name: "Floor Panel 122QF", location: "L122",
+        code: "122QF", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
+        reference: "53-15-22Q", x: 19, y: 60, description: "FWD cabin floor panel (Q variant), starboard" },
+      { id: "FLR-131QF", type: "floor", name: "Floor Panel 131QF", location: "L131",
+        code: "131QF", zone: ["Z230"], frames: { from: "FR22", to: "FR30" },
+        reference: "53-15-31Q", x: 27, y: 40, description: "FWD/MID cabin floor panel (Q variant), port" },
+      { id: "FLR-132QF", type: "floor", name: "Floor Panel 132QF", location: "L132",
+        code: "132QF", zone: ["Z230"], frames: { from: "FR22", to: "FR30" },
+        reference: "53-15-32Q", x: 27, y: 60, description: "FWD/MID cabin floor panel (Q variant), starboard" },
+      { id: "FLR-211QF", type: "floor", name: "Floor Panel 211QF", location: "L211",
+        code: "211QF", zone: ["Z240"], frames: { from: "FR36", to: "FR42" },
+        reference: "53-15-41Q", x: 41, y: 40, description: "MID cabin floor panel (Q variant), port" },
+      { id: "FLR-212QF", type: "floor", name: "Floor Panel 212QF", location: "L212",
+        code: "212QF", zone: ["Z240"], frames: { from: "FR36", to: "FR42" },
+        reference: "53-15-42Q", x: 41, y: 60, description: "MID cabin floor panel (Q variant), starboard" },
+      { id: "FLR-221QF", type: "floor", name: "Floor Panel 221QF", location: "L221",
+        code: "221QF", zone: ["Z250"], frames: { from: "FR50", to: "FR60" },
+        reference: "53-15-51Q", x: 56, y: 40, description: "MID cabin floor panel (Q variant), port" },
+      { id: "FLR-222QF", type: "floor", name: "Floor Panel 222QF", location: "L222",
+        code: "222QF", zone: ["Z250"], frames: { from: "FR50", to: "FR60" },
+        reference: "53-15-52Q", x: 56, y: 60, description: "MID cabin floor panel (Q variant), starboard" },
+      { id: "FLR-261QF", type: "floor", name: "Floor Panel 261QF", location: "L261",
+        code: "261QF", zone: ["Z260"], frames: { from: "FR60", to: "FR70" },
+        reference: "53-15-61Q", x: 68, y: 40, description: "AFT cabin floor panel (Q variant), port" },
+      { id: "FLR-262QF", type: "floor", name: "Floor Panel 262QF", location: "L262",
+        code: "262QF", zone: ["Z260"], frames: { from: "FR60", to: "FR70" },
+        reference: "53-15-62Q", x: 68, y: 60, description: "AFT cabin floor panel (Q variant), starboard" },
+      { id: "FLR-271QF", type: "floor", name: "Floor Panel 271QF", location: "L271",
+        code: "271QF", zone: ["Z270"], frames: { from: "FR70", to: "FR75" },
+        reference: "53-15-71Q", x: 76, y: 40, description: "AFT cabin floor panel (Q variant), port" },
+      { id: "FLR-272QF", type: "floor", name: "Floor Panel 272QF", location: "L272",
+        code: "272QF", zone: ["Z270"], frames: { from: "FR70", to: "FR75" },
+        reference: "53-15-72Q", x: 76, y: 60, description: "AFT cabin floor panel (Q variant), starboard" },
+      { id: "FLR-281QF", type: "floor", name: "Floor Panel 281QF", location: "L281",
+        code: "281QF", zone: ["Z270"], frames: { from: "FR75", to: "FR82" },
+        reference: "53-15-81Q", x: 84, y: 40, description: "AFT cabin floor panel (Q variant), port" },
+      { id: "FLR-282QF", type: "floor", name: "Floor Panel 282QF", location: "L282",
+        code: "282QF", zone: ["Z270"], frames: { from: "FR75", to: "FR82" },
+        reference: "53-15-82Q", x: 84, y: 60, description: "AFT cabin floor panel (Q variant), starboard" },
       // Cargo floor panels (belly)
       { id: "FLR-311CF", type: "floor", name: "Cargo Floor 311CF", location: "C311",
         code: "311CF", zone: ["Z140"], frames: { from: "FR22", to: "FR40" },
@@ -1144,12 +1191,28 @@ function hideTip() { tip.classList.remove("on"); }
 
 /* ---------- SELECT / DETAIL ---------- */
 function selectItem(id, opts) {
+  // Toggle off if the same item is clicked again
+  if (SELECTED_ID === id) {
+    SELECTED_ID = null;
+    renderHotspots();
+    renderDetail();
+    renderResults();
+    return;
+  }
   SELECTED_ID = id;
   const it = cabinItems.find(x => x.id === id);
   if (it && (!opts || opts.pan !== false)) ensureVisible(it);
   renderHotspots();
   renderDetail();
   renderResults(); // highlight in list
+}
+
+function clearSelection() {
+  if (!SELECTED_ID) return;
+  SELECTED_ID = null;
+  renderHotspots();
+  renderDetail();
+  renderResults();
 }
 
 function ensureVisible(it) {
@@ -1502,13 +1565,34 @@ function handleAddCustom() {
 
 const TYPE_FILTER_IDS = ["f-lav","f-gal","f-pel","f-cel","f-par","f-flr"];
 
-function setAllTypes(state) {
-  TYPE_FILTER_IDS.forEach(id => { $("#" + id).checked = state; });
+// Single-button toggle: press once to select all and remember prior state;
+// press again to restore the saved selection.
+let savedTypeFilters = null;
+function toggleAllTypes() {
+  const btn = $("#sel-toggle");
+  if (savedTypeFilters) {
+    TYPE_FILTER_IDS.forEach(id => { $("#" + id).checked = !!savedTypeFilters[id]; });
+    savedTypeFilters = null;
+    btn.textContent = "Select all types";
+  } else {
+    savedTypeFilters = {};
+    TYPE_FILTER_IDS.forEach(id => {
+      const cb = $("#" + id);
+      savedTypeFilters[id] = cb.checked;
+      cb.checked = true;
+    });
+    btn.textContent = "Restore previous";
+  }
   renderHotspots(); applyFilters();
 }
-function invertTypes() {
-  TYPE_FILTER_IDS.forEach(id => { const cb = $("#" + id); cb.checked = !cb.checked; });
-  renderHotspots(); applyFilters();
+function resetToggleStateIfManual() {
+  // Called whenever a type checkbox changes by user interaction so the
+  // toggle button cycle restarts cleanly.
+  if (savedTypeFilters) {
+    savedTypeFilters = null;
+    const btn = $("#sel-toggle");
+    if (btn) btn.textContent = "Select all types";
+  }
 }
 
 function buildPrintArea() {
@@ -1553,12 +1637,15 @@ function bindUI() {
     const cb = $("#" + id);
     if (!cb) return;
     cb.addEventListener("change", () => {
+      if (TYPE_FILTER_IDS.includes(id)) resetToggleStateIfManual();
       renderCargo(); renderZones(); renderFrames(); renderHotspots(); applyFilters();
     });
   });
-  $("#sel-all").addEventListener("click",  () => setAllTypes(true));
-  $("#sel-none").addEventListener("click", () => setAllTypes(false));
-  $("#sel-inv").addEventListener("click",  invertTypes);
+  $("#sel-toggle").addEventListener("click", toggleAllTypes);
+  // Escape clears the current selection from anywhere
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") clearSelection();
+  });
 
   $("#q").addEventListener("input", applyFilters);
   $("#zone-pick").addEventListener("change", applyFilters);
