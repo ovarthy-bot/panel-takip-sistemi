@@ -65,7 +65,43 @@
   .right { border-right: none; border-left: 1px solid var(--border); }
   .left { grid-area: left; }
   .right { grid-area: right; }
-  main { grid-area: main; background: var(--bg); position: relative; overflow: hidden; }
+  main {
+    grid-area: main; background: var(--bg); position: relative; overflow: hidden;
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .map-footer {
+    flex: 0 0 auto;
+    background: var(--panel-2);
+    border-top: 1px solid var(--border);
+    padding: 5px 10px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted); font-size: 11px;
+  }
+  .map-footer .spacer { flex: 1; }
+  .map-list-view {
+    display: none;
+    position: absolute; inset: 0;
+    padding: 14px;
+    overflow: auto;
+    background: #f8fafc;
+    color: #0f172a;
+  }
+  .map-list-view h2 {
+    margin: 0 0 4px; font: 700 16px ui-sans-serif;
+  }
+  .map-list-view .meta {
+    color: #475569; font: 11px ui-monospace; margin-bottom: 10px;
+  }
+  .map-list-view table {
+    width: 100%; border-collapse: collapse; font: 12px ui-sans-serif;
+    background: #fff;
+  }
+  .map-list-view th, .map-list-view td {
+    border: 1px solid #cbd5e1; padding: 5px 8px; text-align: left; vertical-align: top;
+  }
+  .map-list-view th { background: #e2e8f0; position: sticky; top: 0; }
+  .map-list-view tr { cursor: pointer; }
+  .map-list-view tr:hover td { background: #eff6ff; }
 
   .section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
   .section h3 {
@@ -145,16 +181,12 @@
   .leader {
     stroke: #475569; stroke-width: 0.6; stroke-dasharray: 2 2; fill: none;
   }
-  /* Hide map button (mobile) */
-  .hide-map .map-wrap svg.cabin { display: none; }
-  .hide-map .legend, .hide-map .toolbar { display: none; }
-  .hide-map .map-wrap::after {
-    content: "Map hidden — toggle from header";
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    color: #64748b; font: 12px ui-monospace, Menlo, monospace;
-    background: #e2e8f0;
-  }
+  /* Hide map toggle — when on, the map area is replaced with a usable list view */
+  .hide-map .map-wrap svg.cabin,
+  .hide-map .legend { display: none; }
+  .hide-map .map-footer .toolbar { display: none; }
+  .hide-map .map-list-view { display: block; }
+  .hide-map .map-wrap { background: #f8fafc; }
   /* Header buttons */
   .hbtn {
     background: #0b1220; color: var(--text);
@@ -219,13 +251,13 @@
   .legend .sw.cargo { background: rgba(148, 163, 184, 0.20); border: 1px dashed #64748b; border-radius: 1px; }
 
   .toolbar {
-    position: absolute; right: 12px; bottom: 12px;
     display: flex; gap: 6px;
   }
   .toolbar button {
-    background: rgba(15, 23, 42, 0.85); color: #fff;
-    border: 1px solid #334155; border-radius: 6px;
-    padding: 6px 10px; cursor: pointer; font: 12px ui-monospace, Menlo, monospace;
+    background: #0b1220; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 12px; cursor: pointer; font: 12px ui-monospace, Menlo, monospace;
+    min-width: 32px;
   }
   .toolbar button:hover { border-color: var(--accent); }
 
@@ -280,8 +312,13 @@
         "right";
     }
     .left, .right { max-height: 35vh; }
-    header input[type="search"] { width: 160px; }
-    .legend { font-size: 10px; padding: 6px 8px; }
+    header input[type="search"] { width: 140px; }
+    header .hbtn { padding: 4px 8px; font-size: 11px; }
+    .legend { font-size: 10px; padding: 6px 8px; flex-wrap: wrap; max-width: 60%; }
+    /* When map hidden on mobile, give the area to the in-place list view
+       and free up left/right panels from their 35vh cap */
+    .hide-map .left, .hide-map .right { max-height: 45vh; }
+    .hide-map main { min-height: 40vh; }
   }
 </style>
 </head>
@@ -395,6 +432,12 @@
   <main>
     <div class="map-wrap">
       <svg class="cabin" id="svg" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <marker id="leader-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+          </marker>
+        </defs>
         <!-- Layers populated by JS -->
         <g id="layer-fuselage"></g>
         <g id="layer-cargo"></g>
@@ -417,12 +460,17 @@
         <span><span class="sw zone"></span>Zone</span>
         <span><span class="sw cargo"></span>Cargo</span>
       </div>
-      <div class="toolbar">
-        <button id="zoom-in">+</button>
-        <button id="zoom-out">−</button>
-        <button id="zoom-reset">⤺</button>
-      </div>
       <div class="tip" id="tip"></div>
+      <div class="map-list-view" id="map-list-view"></div>
+    </div>
+    <div class="map-footer">
+      <span id="footer-hint">Drag to pan · Pinch / wheel to zoom · Click a hotspot for details</span>
+      <span class="spacer"></span>
+      <div class="toolbar">
+        <button id="zoom-out" title="Zoom out">−</button>
+        <button id="zoom-reset" title="Reset view">⤺</button>
+        <button id="zoom-in" title="Zoom in">+</button>
+      </div>
     </div>
   </main>
 
@@ -527,25 +575,76 @@ const aircraftDefs = {
         code: "6535ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
         reference: "25-33-55", x: 87, y: 50, description: "AFT cabin partition" },
 
-      // FLOOR PANELS (cabin / cargo — sample set, replace with real AMM 53 refs)
-      { id: "FLR-FWD-CABIN", type: "floor", name: "FWD Cabin Floor Panels", location: "F10",
-        code: "53A11", zone: ["Z210", "Z220"], frames: { from: "FR11", to: "FR22" },
-        reference: "53-12-11", x: 16, y: 50, description: "Forward cabin floor panel area" },
-      { id: "FLR-MID-CABIN", type: "floor", name: "MID Cabin Floor Panels", location: "F40",
-        code: "53A21", zone: ["Z240", "Z250"], frames: { from: "FR36", to: "FR50" },
-        reference: "53-12-21", x: 45, y: 50, description: "Mid cabin floor panel area" },
-      { id: "FLR-AFT-CABIN", type: "floor", name: "AFT Cabin Floor Panels", location: "F70",
-        code: "53A31", zone: ["Z260", "Z270"], frames: { from: "FR65", to: "FR80" },
-        reference: "53-12-31", x: 72, y: 50, description: "Aft cabin floor panel area" },
-      { id: "FLR-FWD-CARGO", type: "floor", name: "FWD Cargo Floor Panels", location: "F50",
-        code: "53C11", zone: ["Z140"], frames: { from: "FR22", to: "FR47" },
-        reference: "53-13-11", x: 34, y: 88, description: "FWD cargo compartment floor (107 m³ area)" },
-      { id: "FLR-AFT-CARGO", type: "floor", name: "AFT Cargo Floor Panels", location: "F60",
-        code: "53C21", zone: ["Z150"], frames: { from: "FR47", to: "FR65" },
-        reference: "53-13-21", x: 64, y: 88, description: "AFT cargo compartment floor (85.7 m³ area)" },
-      { id: "FLR-BULK-CARGO", type: "floor", name: "BULK Cargo Floor Panels", location: "F65",
-        code: "53C31", zone: ["Z160"], frames: { from: "FR65", to: "FR75" },
-        reference: "53-13-31", x: 81, y: 88, description: "Bulk cargo compartment floor (22.7 m³ area)" }
+      // FLOOR PANELS — individually addressable panels with Airbus-style codes
+      // (NNN[L]F: NNN = panel position, L = type, F = floor). Sample dataset
+      // including user-referenced 271NF. Replace with full AMM 53 IPC data via JSON import.
+      // FWD cabin floor (Z210–Z230)
+      { id: "FLR-111NF", type: "floor", name: "Floor Panel 111NF", location: "L111",
+        code: "111NF", zone: ["Z210"], frames: { from: "FR1", to: "FR11" },
+        reference: "53-15-11", x: 7, y: 35, description: "FWD cabin floor panel, port" },
+      { id: "FLR-112NF", type: "floor", name: "Floor Panel 112NF", location: "L112",
+        code: "112NF", zone: ["Z210"], frames: { from: "FR1", to: "FR11" },
+        reference: "53-15-12", x: 7, y: 65, description: "FWD cabin floor panel, starboard" },
+      { id: "FLR-121NF", type: "floor", name: "Floor Panel 121NF", location: "L121",
+        code: "121NF", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
+        reference: "53-15-21", x: 19, y: 40, description: "FWD cabin floor panel, port" },
+      { id: "FLR-122NF", type: "floor", name: "Floor Panel 122NF", location: "L122",
+        code: "122NF", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
+        reference: "53-15-22", x: 19, y: 60, description: "FWD cabin floor panel, starboard" },
+      { id: "FLR-131NF", type: "floor", name: "Floor Panel 131NF", location: "L131",
+        code: "131NF", zone: ["Z230"], frames: { from: "FR22", to: "FR30" },
+        reference: "53-15-31", x: 27, y: 40, description: "FWD/MID cabin floor panel, port" },
+      { id: "FLR-132NF", type: "floor", name: "Floor Panel 132NF", location: "L132",
+        code: "132NF", zone: ["Z230"], frames: { from: "FR22", to: "FR30" },
+        reference: "53-15-32", x: 27, y: 60, description: "FWD/MID cabin floor panel, starboard" },
+      // MID cabin floor (Z240–Z250)
+      { id: "FLR-211NF", type: "floor", name: "Floor Panel 211NF", location: "L211",
+        code: "211NF", zone: ["Z240"], frames: { from: "FR36", to: "FR42" },
+        reference: "53-15-41", x: 41, y: 40, description: "MID cabin floor panel, port" },
+      { id: "FLR-212NF", type: "floor", name: "Floor Panel 212NF", location: "L212",
+        code: "212NF", zone: ["Z240"], frames: { from: "FR36", to: "FR42" },
+        reference: "53-15-42", x: 41, y: 60, description: "MID cabin floor panel, starboard" },
+      { id: "FLR-221NF", type: "floor", name: "Floor Panel 221NF", location: "L221",
+        code: "221NF", zone: ["Z250"], frames: { from: "FR50", to: "FR60" },
+        reference: "53-15-51", x: 56, y: 40, description: "MID cabin floor panel, port" },
+      { id: "FLR-222NF", type: "floor", name: "Floor Panel 222NF", location: "L222",
+        code: "222NF", zone: ["Z250"], frames: { from: "FR50", to: "FR60" },
+        reference: "53-15-52", x: 56, y: 60, description: "MID cabin floor panel, starboard" },
+      // AFT cabin floor (Z260–Z270)
+      { id: "FLR-261NF", type: "floor", name: "Floor Panel 261NF", location: "L261",
+        code: "261NF", zone: ["Z260"], frames: { from: "FR60", to: "FR70" },
+        reference: "53-15-61", x: 68, y: 40, description: "AFT cabin floor panel, port" },
+      { id: "FLR-262NF", type: "floor", name: "Floor Panel 262NF", location: "L262",
+        code: "262NF", zone: ["Z260"], frames: { from: "FR60", to: "FR70" },
+        reference: "53-15-62", x: 68, y: 60, description: "AFT cabin floor panel, starboard" },
+      { id: "FLR-271NF", type: "floor", name: "Floor Panel 271NF", location: "L271",
+        code: "271NF", zone: ["Z270"], frames: { from: "FR70", to: "FR75" },
+        reference: "53-15-71", x: 76, y: 40, description: "AFT cabin floor panel, port" },
+      { id: "FLR-272NF", type: "floor", name: "Floor Panel 272NF", location: "L272",
+        code: "272NF", zone: ["Z270"], frames: { from: "FR70", to: "FR75" },
+        reference: "53-15-72", x: 76, y: 60, description: "AFT cabin floor panel, starboard" },
+      { id: "FLR-281NF", type: "floor", name: "Floor Panel 281NF", location: "L281",
+        code: "281NF", zone: ["Z270"], frames: { from: "FR75", to: "FR82" },
+        reference: "53-15-81", x: 84, y: 40, description: "AFT cabin floor panel, port" },
+      { id: "FLR-282NF", type: "floor", name: "Floor Panel 282NF", location: "L282",
+        code: "282NF", zone: ["Z270"], frames: { from: "FR75", to: "FR82" },
+        reference: "53-15-82", x: 84, y: 60, description: "AFT cabin floor panel, starboard" },
+      // Cargo floor panels (belly)
+      { id: "FLR-311CF", type: "floor", name: "Cargo Floor 311CF", location: "C311",
+        code: "311CF", zone: ["Z140"], frames: { from: "FR22", to: "FR40" },
+        reference: "53-16-11", x: 30, y: 88, description: "FWD cargo floor panel" },
+      { id: "FLR-321CF", type: "floor", name: "Cargo Floor 321CF", location: "C321",
+        code: "321CF", zone: ["Z140"], frames: { from: "FR40", to: "FR47" },
+        reference: "53-16-12", x: 42, y: 88, description: "FWD cargo floor panel" },
+      { id: "FLR-411CF", type: "floor", name: "Cargo Floor 411CF", location: "C411",
+        code: "411CF", zone: ["Z150"], frames: { from: "FR47", to: "FR58" },
+        reference: "53-16-21", x: 56, y: 88, description: "AFT cargo floor panel" },
+      { id: "FLR-421CF", type: "floor", name: "Cargo Floor 421CF", location: "C421",
+        code: "421CF", zone: ["Z150"], frames: { from: "FR58", to: "FR65" },
+        reference: "53-16-22", x: 67, y: 88, description: "AFT cargo floor panel" },
+      { id: "FLR-511BF", type: "floor", name: "Bulk Floor 511BF", location: "C511",
+        code: "511BF", zone: ["Z160"], frames: { from: "FR65", to: "FR75" },
+        reference: "53-16-31", x: 79, y: 88, description: "BULK cargo floor panel" }
     ]
   },
   "A321": {
@@ -957,8 +1056,12 @@ function renderHotspots() {
       (FILTERED_IDS && !FILTERED_IDS.has(it.id) ? " dim" : "");
 
     if (fanned) {
-      el("line", { x1: ox, y1: oy, x2: cx, y2: cy, class: "leader" }, ld);
-      el("circle", { cx: ox, cy: oy, r: 1.5, fill: "#475569" }, ld);
+      // Leader from offset marker pointing back to true position; arrow lands on origin.
+      el("line", {
+        x1: cx, y1: cy, x2: ox, y2: oy,
+        class: "leader", "marker-end": "url(#leader-arrow)"
+      }, ld);
+      el("circle", { cx: ox, cy: oy, r: 2, fill: "#475569", stroke: "#fff", "stroke-width": "0.5" }, ld);
     }
 
     let node;
@@ -1040,11 +1143,29 @@ function moveTip(e) {
 function hideTip() { tip.classList.remove("on"); }
 
 /* ---------- SELECT / DETAIL ---------- */
-function selectItem(id) {
+function selectItem(id, opts) {
   SELECTED_ID = id;
+  const it = cabinItems.find(x => x.id === id);
+  if (it && (!opts || opts.pan !== false)) ensureVisible(it);
   renderHotspots();
   renderDetail();
   renderResults(); // highlight in list
+}
+
+function ensureVisible(it) {
+  const cx = xPct(it.x), cy = yPct(it.y);
+  const pad = 30;
+  const inside = cx >= view.x + pad && cx <= view.x + view.w - pad
+              && cy >= view.y + pad && cy <= view.y + view.h - pad;
+  if (!inside) {
+    // Zoom in a bit if currently fully zoomed out
+    if (view.w >= VB_W * 0.95) {
+      view.w = VB_W * 0.55; view.h = VB_H * 0.55;
+    }
+    view.x = cx - view.w / 2;
+    view.y = cy - view.h / 2;
+    applyView();
+  }
 }
 
 function renderDetail() {
@@ -1175,6 +1296,11 @@ function applyFilters() {
   FILTERED_IDS = (q || zonePick || frFrom != null || frTo != null) ? set : null;
   renderHotspots();
   renderResults(visible);
+  if (document.body.classList.contains("hide-map")) buildMapListView();
+  // If the search narrowed to a single item, auto-locate it on the map
+  if (q && q.trim() && visible.length === 1 && visible[0].id !== SELECTED_ID) {
+    selectItem(visible[0].id);
+  }
 }
 
 function parseFrame(s) {
@@ -1234,23 +1360,63 @@ svg.addEventListener("wheel", e => {
   zoom(e.deltaY < 0 ? 1.12 : 1/1.12, pt.x, pt.y);
 }, { passive: false });
 
-// Drag pan
-let dragging = false, last = null;
+// Pan + pinch-zoom (multi-touch via Pointer Events)
+const pointers = new Map();
+let dragging = false, last = null, pinchData = null;
+
 svg.addEventListener("pointerdown", e => {
-  if (e.target.closest(".hotspot")) return;
-  dragging = true; last = { x: e.clientX, y: e.clientY };
-  svg.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  try { svg.setPointerCapture(e.pointerId); } catch {}
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
+    pinchData = {
+      startDist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+      startView: { x: view.x, y: view.y, w: view.w, h: view.h },
+      svgPt: svgPoint(midX, midY)
+    };
+    dragging = false;
+  } else if (pointers.size === 1) {
+    if (e.target.closest(".hotspot")) return;
+    dragging = true;
+    last = { x: e.clientX, y: e.clientY };
+  }
 });
+
 svg.addEventListener("pointermove", e => {
-  if (!dragging) return;
-  const dx = (e.clientX - last.x) * (view.w / svg.clientWidth);
-  const dy = (e.clientY - last.y) * (view.h / svg.clientHeight);
-  view.x -= dx; view.y -= dy;
-  last = { x: e.clientX, y: e.clientY };
-  applyView();
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2 && pinchData) {
+    const [a, b] = [...pointers.values()];
+    const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const factor = dist / pinchData.startDist;
+    const startW = pinchData.startView.w;
+    const startH = pinchData.startView.h;
+    let nw = startW / factor;
+    let nh = startH / factor;
+    nw = Math.max(80, Math.min(VB_W * 4, nw));
+    nh = Math.max(VB_H * 0.08, Math.min(VB_H * 4, nh));
+    view.w = nw; view.h = nh;
+    view.x = pinchData.svgPt.x - (pinchData.svgPt.x - pinchData.startView.x) * (nw / startW);
+    view.y = pinchData.svgPt.y - (pinchData.svgPt.y - pinchData.startView.y) * (nh / startH);
+    applyView();
+  } else if (pointers.size === 1 && dragging) {
+    const dx = (e.clientX - last.x) * (view.w / svg.clientWidth);
+    const dy = (e.clientY - last.y) * (view.h / svg.clientHeight);
+    view.x -= dx; view.y -= dy;
+    last = { x: e.clientX, y: e.clientY };
+    applyView();
+  }
 });
-svg.addEventListener("pointerup",   () => dragging = false);
-svg.addEventListener("pointercancel", () => dragging = false);
+
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinchData = null;
+  if (pointers.size === 0) dragging = false;
+}
+svg.addEventListener("pointerup", endPointer);
+svg.addEventListener("pointercancel", endPointer);
+svg.addEventListener("pointerleave", endPointer);
 
 function svgPoint(clientX, clientY) {
   const r = svg.getBoundingClientRect();
@@ -1411,6 +1577,40 @@ function bindUI() {
   $("#btn-hide-map").addEventListener("click", () => {
     const on = document.body.classList.toggle("hide-map");
     $("#btn-hide-map").textContent = on ? "Show Map" : "Hide Map";
+    if (on) buildMapListView();
+  });
+}
+
+function buildMapListView() {
+  const visible = (FILTERED_IDS
+    ? cabinItems.filter(i => FILTERED_IDS.has(i.id))
+    : cabinItems).filter(it => {
+      const meta = typeMetaOf(it.type);
+      const cb = $("#" + meta.filter);
+      return !cb || cb.checked;
+    });
+  const rows = visible.map(it => `
+    <tr data-id="${it.id}">
+      <td><span class="pill ${typeMetaOf(it.type).cls}" style="font-size:10px;padding:1px 6px">${TYPE_SHORT[it.type] || it.type.toUpperCase()}</span></td>
+      <td><b>${it.name}</b><br><span style="color:#64748b;font-size:11px">${it.location}</span></td>
+      <td>${(it.zone||[]).join("/")}</td>
+      <td>${it.frames ? it.frames.from + "–" + it.frames.to : "—"}</td>
+      <td>${it.code || ""}</td>
+      <td>${it.reference || ""}</td>
+    </tr>
+  `).join("");
+  $("#map-list-view").innerHTML = `
+    <h2>${CURRENT_AC} — ${visible.length} item(s) shown</h2>
+    <div class="meta">Map hidden · Filters and search apply · Click a row to open details</div>
+    <table>
+      <thead><tr>
+        <th>Type</th><th>Name / Loc</th><th>Zone</th><th>Frame</th><th>Code</th><th>Ref</th>
+      </tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:#64748b">No items match current filters.</td></tr>`}</tbody>
+    </table>
+  `;
+  $("#map-list-view").querySelectorAll("tr[data-id]").forEach(tr => {
+    tr.onclick = () => selectItem(tr.dataset.id, { pan: false });
   });
 }
 
