@@ -502,33 +502,40 @@ const FLOOR_ZONES_A330 = [
   { zone: "281", side: "port",      x1: 84, x2: 92, xZone: "Z270", fr: ["FR75", "FR82"] },
   { zone: "282", side: "starboard", x1: 84, x2: 92, xZone: "Z270", fr: ["FR75", "FR82"] }
 ];
-// Panel-type suffixes (representative set covering AMM 53 conventions).
-// Replace via JSON import to match the exact figures.
-const PANEL_SUFFIXES = ["AF", "BF", "CF", "DF", "EF", "NF", "PF", "QF", "RF", "SF"];
+// AMM A330 floor panels use codes of the form [zone][letter][row] where:
+//   letter = panel position along length (A-Z, skipping I & O to avoid 1/0 confusion)
+//   row    = lateral position: F (port-inboard) / G (centerline) / H (starboard-inboard)
+// We generate every (letter, row) combination per zone so any code referenced
+// in the AMM (e.g. 262HH, 261FG, 271QF) is searchable and renderable.
+const PANEL_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";  // 24 letters
+const PANEL_ROWS    = ["F", "G", "H"];
 
 function genFloorPanels() {
   const out = [];
   FLOOR_ZONES_A330.forEach(z => {
-    PANEL_SUFFIXES.forEach((suf, i) => {
-      const t = (i + 0.5) / PANEL_SUFFIXES.length;
-      const xc = z.x1 + t * (z.x2 - z.x1);
-      // Port side roughly y=32, starboard y=68. Small jitter so identical
-      // (zone,position) variants don't sit perfectly coincident.
-      const baseY = z.side === "port" ? 32 : 68;
-      const yc = baseY + ((i % 3) - 1) * 3;
-      const code = `${z.zone}${suf}`;
-      out.push({
-        id: `FLR-${code}`,
-        type: "floor",
-        name: `Floor Panel ${code}`,
-        location: `L${z.zone}${suf.charAt(0)}`,
-        code: code,
-        zone: [z.xZone],
-        frames: { from: z.fr[0], to: z.fr[1] },
-        reference: `06-41-53-${z.zone}`,
-        x: xc, y: yc,
-        description: `${z.side === "port" ? "Port" : "Starboard"} cabin floor panel ${code}`
-      });
+    const baseY = z.side === "port" ? 30 : 70;
+    PANEL_ROWS.forEach((row, rowIdx) => {
+      for (let i = 0; i < PANEL_LETTERS.length; i++) {
+        const letter = PANEL_LETTERS[i];
+        const code = `${z.zone}${letter}${row}`;
+        const t = (i + 0.5) / PANEL_LETTERS.length;
+        const xc = z.x1 + t * (z.x2 - z.x1);
+        // Sub-row offset within the zone's lateral strip: F above, G middle,
+        // H below the base position.
+        const yc = baseY + (rowIdx - 1) * 6;
+        out.push({
+          id: `FLR-${code}`,
+          type: "floor",
+          name: `Floor Panel ${code}`,
+          location: `L${z.zone}${letter}`,
+          code: code,
+          zone: [z.xZone],
+          frames: { from: z.fr[0], to: z.fr[1] },
+          reference: `06-41-53-${z.zone}`,
+          x: xc, y: yc,
+          description: `${z.side === "port" ? "Port" : "Starboard"} cabin floor panel ${code} (${row}-row)`
+        });
+      }
     });
   });
   return out;
@@ -974,32 +981,35 @@ function zoomToZone(zone) {
   $("#zone-pick").value = zone.id;
   // Re-render with focus mode active
   renderAll();
-  // Frame the slice tightly with margins for frame & door labels
+  // Frame the slice with padding for frame and door labels
   const y1 = posL(zone.x1), y2 = posL(zone.x2);
-  const padY = 50;
+  const padY = 60;
   const cx = CENTER_X, halfW = FUS_HALF_W;
-  const left  = cx - halfW - 45;   // room for FR labels on the left
+  const left  = cx - halfW - 50;   // room for FR labels on the left
   const right = cx + halfW + 110;  // room for DOOR labels on the right
-  const sliceTop    = y1 - padY;
-  const sliceBottom = y2 + padY;
-  const sliceW = right - left;
-  const sliceH = sliceBottom - sliceTop;
-  // Maintain container aspect — expand whichever dim is too tight
-  const aspect = (svg.clientWidth || VB_W) / (svg.clientHeight || VB_H);
-  if (sliceW / sliceH < aspect) {
-    const want = sliceH * aspect;
-    const grow = (want - sliceW) / 2;
-    view.x = left - grow;
-    view.w = want;
+  // Start with the slice's natural bounding box
+  let vx = left;
+  let vy = y1 - padY;
+  let vw = right - left;
+  let vh = (y2 - y1) + 2 * padY;
+  // Match the container's aspect ratio so the SVG actually zooms in
+  // instead of preserving extra empty space.
+  const cw = svg.clientWidth || VB_W;
+  const ch = svg.clientHeight || VB_H;
+  const containerAspect = cw / ch;
+  const sliceAspect = vw / vh;
+  if (sliceAspect < containerAspect) {
+    // Container is wider than the slice — extend viewBox horizontally
+    const newW = vh * containerAspect;
+    vx = (left + right) / 2 - newW / 2;
+    vw = newW;
   } else {
-    const want = sliceW / aspect;
-    const grow = (want - sliceH) / 2;
-    view.y = sliceTop - grow;
-    view.h = want;
-    view.x = left;
-    view.w = sliceW;
+    // Container is taller than the slice — extend viewBox vertically
+    const newH = vw / containerAspect;
+    vy = (y1 + y2) / 2 - newH / 2;
+    vh = newH;
   }
-  if (view.h == null) { view.y = sliceTop; view.h = sliceH; }
+  view = { x: vx, y: vy, w: vw, h: vh };
   applyView();
   applyFilters();
   persistPrefs();
@@ -1129,8 +1139,12 @@ function computeSpread(items) {
     const p = itemPos(it);
     return { it, ox: p.x, oy: p.y, dx: p.x, dy: p.y };
   });
-  const MIN_DIST = 28;       // svg units, target minimum centre-to-centre gap
-  const ITERATIONS = 60;
+  const MIN_DIST = 22;       // svg units, target minimum centre-to-centre gap
+  // Adaptive: cap total O(n^2*iter) ops so dense renders (1000+ panels) stay
+  // responsive. Few items → many iterations (smooth spread). Many items →
+  // fewer iterations (some overlap but no lag).
+  const n = pts.length;
+  const ITERATIONS = Math.max(3, Math.min(60, Math.floor(400000 / Math.max(1, n * n))));
   const PUSH = 0.55;
 
   for (let iter = 0; iter < ITERATIONS; iter++) {
@@ -1622,31 +1636,31 @@ function handleAddCustom() {
 
 /* ---------- Type toggle ---------- */
 const TYPE_FILTER_IDS = ["f-lav","f-gal","f-flr"];
-let savedTypeFilters = null;
 
+// Single toggle: button checks/unchecks EVERY filter checkbox in the panel.
+// First click → all on. Second click → all off. Button text reflects what
+// the next click will do, so the user can always tell.
 function toggleAllTypes() {
-  const btn = $("#sel-toggle");
-  if (savedTypeFilters) {
-    TYPE_FILTER_IDS.forEach(id => { $("#" + id).checked = !!savedTypeFilters[id]; });
-    savedTypeFilters = null;
-    btn.textContent = "Select all types";
-  } else {
-    savedTypeFilters = {};
-    TYPE_FILTER_IDS.forEach(id => {
-      const cb = $("#" + id);
-      savedTypeFilters[id] = cb.checked;
-      cb.checked = true;
-    });
-    btn.textContent = "Restore previous";
-  }
-  renderHotspots(); applyFilters();
+  const allChecked = ALL_FILTER_IDS.every(id => {
+    const cb = $("#" + id);
+    return cb && cb.checked;
+  });
+  const newState = !allChecked;
+  ALL_FILTER_IDS.forEach(id => {
+    const cb = $("#" + id);
+    if (cb) cb.checked = newState;
+  });
+  updateToggleBtn();
+  renderCargo(); renderZones(); renderFrames(); renderHotspots(); applyFilters();
 }
-function resetToggleStateIfManual() {
-  if (savedTypeFilters) {
-    savedTypeFilters = null;
-    const btn = $("#sel-toggle");
-    if (btn) btn.textContent = "Select all types";
-  }
+function updateToggleBtn() {
+  const btn = $("#sel-toggle");
+  if (!btn) return;
+  const allChecked = ALL_FILTER_IDS.every(id => {
+    const cb = $("#" + id);
+    return cb && cb.checked;
+  });
+  btn.textContent = allChecked ? "Unselect All Types" : "Select All Types";
 }
 
 /* ---------- Print / hide-map list ---------- */
@@ -1782,7 +1796,6 @@ function persistPrefs() {
     hideMap: document.body.classList.contains("hide-map"),
     leftCollapsed: document.body.classList.contains("left-collapsed"),
     rightCollapsed: document.body.classList.contains("right-collapsed"),
-    savedTypeFilters,
     view: { x: view.x, y: view.y, w: view.w, h: view.h },
     selectedId: SELECTED_ID,
     focusedZoneId: FOCUSED_ZONE ? FOCUSED_ZONE.id : null
@@ -1808,10 +1821,6 @@ function applyPrefs(p) {
   if (p.hideMap)        document.body.classList.add("hide-map");
   if (p.leftCollapsed)  document.body.classList.add("left-collapsed");
   if (p.rightCollapsed) document.body.classList.add("right-collapsed");
-  if (p.savedTypeFilters) {
-    savedTypeFilters = p.savedTypeFilters;
-    $("#sel-toggle").textContent = "Restore previous";
-  }
   if (p.view && typeof p.view.x === "number") view = { ...p.view };
   if (p.selectedId) SELECTED_ID = p.selectedId;
   if (p.hideMap) $("#btn-hide-map").textContent = "Show Map";
@@ -1835,12 +1844,13 @@ function bindUI() {
     const cb = $("#" + id);
     if (!cb) return;
     cb.addEventListener("change", () => {
-      if (TYPE_FILTER_IDS.includes(id)) resetToggleStateIfManual();
+      updateToggleBtn();
       renderCargo(); renderZones(); renderFrames(); renderHotspots(); applyFilters();
       persistPrefs();
     });
   });
   $("#sel-toggle").addEventListener("click", () => { toggleAllTypes(); persistPrefs(); });
+  updateToggleBtn();
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
     // Priority: clear selection → exit focus → no-op
@@ -1921,9 +1931,16 @@ function init() {
   }
   initZonePicker();
   if (prefs.zonePick) $("#zone-pick").value = prefs.zonePick;
-  renderAll();
-  applyView();
-  applyFilters();
+  if (FOCUSED_ZONE) {
+    // Re-enter focus with viewBox recomputed for current container size
+    const z = FOCUSED_ZONE;
+    FOCUSED_ZONE = null;
+    zoomToZone(z);
+  } else {
+    renderAll();
+    applyView();
+    applyFilters();
+  }
   renderDetail();
 }
 init();
