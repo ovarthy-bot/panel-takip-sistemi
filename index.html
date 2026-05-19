@@ -108,9 +108,26 @@
   body.left-collapsed .left { transform: translateX(-100%); }
   body.right-collapsed .right { transform: translateX(100%); }
 
+  /* Sticky close-button bar at the top of each drawer */
+  .drawer-bar {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--panel-2);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: flex-end;
+  }
+  .drawer-close {
+    width: 30px; height: 30px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px;
+    cursor: pointer; font: 14px ui-monospace;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .drawer-close:hover { border-color: var(--accent); color: var(--accent); }
+
   .drawer-toggle {
     position: absolute;
-    top: 8px;
+    top: 56px;       /* clear of the 48px header */
     z-index: 25;
     width: 34px; height: 36px;
     background: var(--panel); color: var(--text);
@@ -351,6 +368,9 @@
   <button class="drawer-toggle right-toggle" id="toggle-right" title="Toggle detail panel">ℹ</button>
 
   <aside class="left">
+    <div class="drawer-bar">
+      <button class="drawer-close" id="close-left" type="button" aria-label="Close panel" title="Close panel">✕</button>
+    </div>
     <div class="section">
       <h3>Aircraft</h3>
       <select id="aircraft">
@@ -481,8 +501,13 @@
     </div>
   </main>
 
-  <aside class="right" id="detail">
-    <div class="empty">Bir nokta seç veya sol panelden arama yap.</div>
+  <aside class="right">
+    <div class="drawer-bar">
+      <button class="drawer-close" id="close-right" type="button" aria-label="Close panel" title="Close panel">✕</button>
+    </div>
+    <div id="detail">
+      <div class="empty">Bir nokta seç veya sol panelden arama yap.</div>
+    </div>
   </aside>
 </div>
 
@@ -986,12 +1011,10 @@ function renderZones() {
     }, g);
     const label = el("text", {
       x: cx + halfW + 6, y: (y1 + y2) / 2 + 4,
-      class: "zone-label"
+      class: "zone-label", "data-zone": z.id
     }, g);
     label.textContent = z.id;
-    const handler = e => { e.stopPropagation(); zoomToZone(z); };
-    rect.addEventListener("click", handler);
-    label.addEventListener("click", handler);
+    // Click handled by SVG-level delegation
   });
 }
 
@@ -1267,7 +1290,8 @@ function renderHotspots() {
           class: cls, "data-id": it.id
         }, g);
     }
-    node.addEventListener("click", e => { e.stopPropagation(); selectItem(it.id); });
+    // Click is handled via SVG-level delegation below (more reliable when
+    // pointer capture is engaged for pan/pinch).
     node.addEventListener("mouseenter", e => showTip(e, it));
     node.addEventListener("mousemove", moveTip);
     node.addEventListener("mouseleave", hideTip);
@@ -1919,7 +1943,7 @@ function bindUI() {
   // Zone focus exit banner
   $("#focus-banner").addEventListener("click", exitZoneFocus);
 
-  // Drawer toggles
+  // Drawer toggles (external chevron buttons)
   $("#toggle-left").addEventListener("click", () => {
     document.body.classList.toggle("left-collapsed");
     persistPrefs();
@@ -1927,6 +1951,34 @@ function bindUI() {
   $("#toggle-right").addEventListener("click", () => {
     document.body.classList.toggle("right-collapsed");
     persistPrefs();
+  });
+  // Drawer close buttons inside each drawer (always visible when drawer open)
+  $("#close-left").addEventListener("click", () => {
+    document.body.classList.add("left-collapsed");
+    persistPrefs();
+  });
+  $("#close-right").addEventListener("click", () => {
+    document.body.classList.add("right-collapsed");
+    persistPrefs();
+  });
+
+  // SVG-level click delegation — handles hotspot AND zone clicks reliably,
+  // even when pointer-capture is engaged by the pan/pinch handlers.
+  svg.addEventListener("click", e => {
+    // Ignore if a drag actually happened (pan released without click intent)
+    const hot = e.target.closest(".hotspot");
+    if (hot && hot.dataset.id) {
+      e.stopPropagation();
+      selectItem(hot.dataset.id);
+      return;
+    }
+    if (!FOCUSED_ZONE) {
+      const zoneEl = e.target.closest("[data-zone]");
+      if (zoneEl) {
+        const z = zones.find(zz => zz.id === zoneEl.dataset.zone);
+        if (z) zoomToZone(z);
+      }
+    }
   });
 
   // Zoom buttons
