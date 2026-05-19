@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>A330 Cabin Map — Galley / Lavatory</title>
+<title>A330 Cabin Map — Galley / Lavatory / Floor Panels</title>
 <style>
   :root {
     --bg: #0f172a;
@@ -21,53 +21,58 @@
     --map-ink: #0f172a;
     --map-soft: #cbd5e1;
     --warn: #ef4444;
+    --drawer-w: 300px;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; height: 100%;
     background: var(--bg); color: var(--text);
     font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
   }
   .app {
+    position: relative;
     display: grid;
-    grid-template-columns: 260px 1fr 320px;
     grid-template-rows: 48px 1fr;
-    grid-template-areas:
-      "top top top"
-      "left main right";
     height: 100vh;
   }
   header {
-    grid-area: top;
-    display: flex; align-items: center; gap: 12px;
-    padding: 0 14px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 12px;
     background: var(--panel-2);
     border-bottom: 1px solid var(--border);
+    z-index: 30;
   }
-  header .title { font-weight: 700; letter-spacing: 0.4px; }
+  header .title { font-weight: 700; letter-spacing: 0.3px; }
   header .sub { color: var(--muted); font-size: 12px; }
-  header .search {
-    margin-left: auto; display: flex; gap: 6px; align-items: center;
+  header .spacer { flex: 1; }
+  header .hbtn {
+    background: #0b1220; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; cursor: pointer; font: 12px ui-sans-serif;
   }
+  header .hbtn:hover { border-color: var(--accent); }
   header input[type="search"] {
     background: #0b1220; color: var(--text);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 6px 10px; width: 260px;
+    padding: 6px 10px; width: 240px;
     outline: none;
   }
   header input[type="search"]:focus { border-color: var(--accent); }
-  .left, .right {
-    background: var(--panel);
-    border-right: 1px solid var(--border);
-    overflow: auto;
-  }
-  .right { border-right: none; border-left: 1px solid var(--border); }
-  .left { grid-area: left; }
-  .right { grid-area: right; }
+
+  /* Main map area takes the entire space; drawers float on top */
   main {
-    grid-area: main; background: var(--bg); position: relative; overflow: hidden;
+    position: relative;
+    background: var(--bg);
+    overflow: hidden;
     display: flex; flex-direction: column; min-height: 0;
+  }
+  .map-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    background: var(--map-bg);
+    overflow: hidden;
   }
   .map-footer {
     flex: 0 0 auto;
@@ -78,30 +83,49 @@
     color: var(--muted); font-size: 11px;
   }
   .map-footer .spacer { flex: 1; }
-  .map-list-view {
-    display: none;
-    position: absolute; inset: 0;
-    padding: 14px;
-    overflow: auto;
-    background: #f8fafc;
-    color: #0f172a;
+  .toolbar { display: flex; gap: 6px; }
+  .toolbar button {
+    background: #0b1220; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 12px; cursor: pointer; font: 12px ui-monospace, Menlo, monospace;
+    min-width: 32px;
   }
-  .map-list-view h2 {
-    margin: 0 0 4px; font: 700 16px ui-sans-serif;
+  .toolbar button:hover { border-color: var(--accent); }
+
+  /* Drawers — slide-in panels, always overlay the map */
+  .left, .right {
+    position: absolute;
+    top: 48px; bottom: 0;
+    width: var(--drawer-w);
+    background: var(--panel);
+    overflow-y: auto; overflow-x: hidden;
+    z-index: 20;
+    transition: transform 0.28s ease;
+    box-shadow: 0 0 14px rgba(0,0,0,0.45);
   }
-  .map-list-view .meta {
-    color: #475569; font: 11px ui-monospace; margin-bottom: 10px;
+  .left { left: 0; border-right: 1px solid var(--border); }
+  .right { right: 0; border-left: 1px solid var(--border); }
+  body.left-collapsed .left { transform: translateX(-100%); }
+  body.right-collapsed .right { transform: translateX(100%); }
+
+  .drawer-toggle {
+    position: absolute;
+    top: 8px;
+    z-index: 25;
+    width: 34px; height: 36px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    transition: left 0.28s ease, right 0.28s ease;
+    user-select: none;
   }
-  .map-list-view table {
-    width: 100%; border-collapse: collapse; font: 12px ui-sans-serif;
-    background: #fff;
-  }
-  .map-list-view th, .map-list-view td {
-    border: 1px solid #cbd5e1; padding: 5px 8px; text-align: left; vertical-align: top;
-  }
-  .map-list-view th { background: #e2e8f0; position: sticky; top: 0; }
-  .map-list-view tr { cursor: pointer; }
-  .map-list-view tr:hover td { background: #eff6ff; }
+  .left-toggle  { left: calc(var(--drawer-w) + 8px); }
+  .right-toggle { right: calc(var(--drawer-w) + 8px); }
+  body.left-collapsed  .left-toggle  { left: 8px; }
+  body.right-collapsed .right-toggle { right: 8px; }
 
   .section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
   .section h3 {
@@ -114,7 +138,7 @@
     width: 100%;
     background: #0b1220; color: var(--text);
     border: 1px solid var(--border); border-radius: 6px;
-    padding: 6px 8px; outline: none;
+    padding: 6px 8px; outline: none; font: inherit;
   }
   .btn { cursor: pointer; }
   .btn:hover { border-color: var(--accent); }
@@ -130,12 +154,7 @@
   .pill.par { color: #cbd5e1; border-color: rgba(100, 116, 139, 0.5); }
   .pill.flr { color: #fbbf24; border-color: rgba(245, 158, 11, 0.45); }
 
-  /* Map */
-  .map-wrap {
-    position: absolute; inset: 0;
-    background: var(--map-bg);
-    overflow: hidden;
-  }
+  /* Map SVG */
   svg.cabin {
     width: 100%; height: 100%;
     display: block;
@@ -146,83 +165,30 @@
   .frame-label { font: 9px ui-monospace, Menlo, monospace; fill: #64748b; }
   .door-line { stroke: #334155; stroke-width: 2; }
   .door-label { font: 9px ui-monospace, Menlo, monospace; fill: #334155; }
-  .fuselage {
-    fill: #fff; stroke: #0f172a; stroke-width: 1.5;
-  }
+  .fuselage { fill: #fff; stroke: #0f172a; stroke-width: 1.5; }
   .seat-row { fill: #e2e8f0; }
-  .zone-shape { fill: var(--zone); stroke: var(--zone-stroke); stroke-width: 0.6; stroke-dasharray: 4 3; }
-  .zone-label { font: 10px ui-monospace, Menlo, monospace; fill: #92400e; font-weight: 700; }
+  .zone-shape {
+    fill: var(--zone); stroke: var(--zone-stroke);
+    stroke-width: 0.6; stroke-dasharray: 4 3;
+    cursor: pointer; transition: fill 120ms ease;
+  }
+  .zone-shape:hover { fill: rgba(250, 204, 21, 0.35); stroke-width: 1.2; }
+  .zone-label { font: 10px ui-monospace, Menlo, monospace; fill: #92400e; font-weight: 700; cursor: pointer; }
+  .zone-label:hover { fill: #78350f; }
+  .nacelle { fill: #cbd5e1; stroke: #334155; stroke-width: 0.8; }
+  .leader { stroke: #475569; stroke-width: 0.7; stroke-dasharray: 3 2; fill: none; }
+  .cargo-bracket { stroke: #64748b; stroke-width: 1; fill: none; }
+  .cargo-label { font: 9px ui-monospace, Menlo, monospace; fill: #475569; font-weight: 700; }
+  .cargo-sub { font: 8px ui-monospace, Menlo, monospace; fill: #64748b; }
 
   .hotspot { cursor: pointer; transition: transform 120ms ease; transform-origin: center; transform-box: fill-box; }
-  .hotspot:hover { transform: scale(1.15); }
+  .hotspot:hover { transform: scale(1.18); }
   .hotspot.lav { fill: var(--lav); stroke: #0c4a6e; stroke-width: 1; }
   .hotspot.gal { fill: var(--gal); stroke: #7c2d12; stroke-width: 1; }
   .hotspot.pel { fill: #10b981; stroke: #065f46; stroke-width: 1; }
   .hotspot.cel { fill: #14b8a6; stroke: #134e4a; stroke-width: 1; }
   .hotspot.par { fill: #64748b; stroke: #1e293b; stroke-width: 1; }
   .hotspot.flr { fill: #f59e0b; stroke: #78350f; stroke-width: 1; }
-
-  /* Cargo compartment overlay (FWD / AFT / BULK) */
-  .cargo-rect {
-    fill: rgba(148, 163, 184, 0.10);
-    stroke: #64748b; stroke-width: 0.8; stroke-dasharray: 4 3;
-  }
-  .cargo-label {
-    font: 9px ui-monospace, Menlo, monospace; fill: #475569; font-weight: 700;
-  }
-  .cargo-sub {
-    font: 8px ui-monospace, Menlo, monospace; fill: #64748b;
-  }
-  /* Engine nacelle (wing-mounted) */
-  .nacelle {
-    fill: #cbd5e1; stroke: #334155; stroke-width: 0.8;
-  }
-  /* Leader line for auto-spread offsets */
-  .leader {
-    stroke: #475569; stroke-width: 0.6; stroke-dasharray: 2 2; fill: none;
-  }
-  /* Hide map toggle — when on, the map area is replaced with a usable list view */
-  .hide-map .map-wrap svg.cabin,
-  .hide-map .legend { display: none; }
-  .hide-map .map-footer .toolbar { display: none; }
-  .hide-map .map-list-view { display: block; }
-  .hide-map .map-wrap { background: #f8fafc; }
-  /* Header buttons */
-  .hbtn {
-    background: #0b1220; color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 5px 10px; cursor: pointer; font: 12px ui-sans-serif;
-  }
-  .hbtn:hover { border-color: var(--accent); }
-  .mini-btns { display: flex; gap: 4px; margin-bottom: 6px; }
-  .mini-btns button {
-    flex: 1; padding: 3px 6px; font-size: 10px;
-    background: #0b1220; color: var(--muted);
-    border: 1px solid var(--border); border-radius: 4px;
-    cursor: pointer;
-  }
-  .mini-btns button:hover { color: var(--text); border-color: var(--accent); }
-
-  /* Print stylesheet */
-  @media print {
-    body { background: #fff; color: #0f172a; }
-    .app {
-      display: block; height: auto;
-    }
-    header, .left, .right { display: none !important; }
-    main { background: #fff; height: auto; }
-    .map-wrap { position: relative; height: 60vh; }
-    .toolbar, .tip { display: none !important; }
-    .print-only { display: block !important; }
-    .print-only h1 { font: 700 16px ui-sans-serif; margin: 0 0 6px; }
-    .print-only .meta { font: 11px ui-monospace; color: #475569; margin-bottom: 10px; }
-    .print-only table { width: 100%; border-collapse: collapse; font: 10px ui-sans-serif; }
-    .print-only th, .print-only td {
-      border: 1px solid #cbd5e1; padding: 4px 6px; text-align: left;
-    }
-    .print-only th { background: #f1f5f9; }
-  }
-  .print-only { display: none; }
   .hotspot.selected {
     stroke: var(--accent); stroke-width: 2.5;
     filter: drop-shadow(0 0 6px rgba(232, 121, 249, 0.8));
@@ -233,12 +199,35 @@
     fill: #0f172a; pointer-events: none;
   }
 
+  /* Hide map: replace SVG area with in-place tabular list view */
+  .map-list-view {
+    display: none;
+    position: absolute; inset: 0;
+    padding: 12px; overflow: auto;
+    background: #f8fafc; color: #0f172a;
+  }
+  .map-list-view h2 { margin: 0 0 4px; font: 700 16px ui-sans-serif; }
+  .map-list-view .meta { color: #475569; font: 11px ui-monospace; margin-bottom: 10px; }
+  .map-list-view table { width: 100%; border-collapse: collapse; font: 12px ui-sans-serif; background: #fff; }
+  .map-list-view th, .map-list-view td {
+    border: 1px solid #cbd5e1; padding: 5px 8px; text-align: left; vertical-align: top;
+  }
+  .map-list-view th { background: #e2e8f0; position: sticky; top: 0; }
+  .map-list-view tr { cursor: pointer; }
+  .map-list-view tr:hover td { background: #eff6ff; }
+  body.hide-map .map-wrap svg.cabin,
+  body.hide-map .legend { display: none; }
+  body.hide-map .map-list-view { display: block; }
+  body.hide-map .map-wrap { background: #f8fafc; }
+
   .legend {
-    position: absolute; left: 12px; bottom: 12px;
+    position: absolute; left: 12px; top: 8px;
     background: rgba(255,255,255,0.95); color: #0f172a;
     border: 1px solid #cbd5e1; border-radius: 8px;
-    padding: 8px 10px; font-size: 11px;
-    display: flex; gap: 12px; align-items: center;
+    padding: 6px 9px; font-size: 11px;
+    display: flex; gap: 10px; align-items: center;
+    flex-wrap: wrap; max-width: calc(100% - 100px);
+    z-index: 5;
   }
   .legend .sw { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
   .legend .sw.lav { background: var(--lav); }
@@ -250,34 +239,23 @@
   .legend .sw.zone { background: var(--zone); border: 1px dashed var(--zone-stroke); border-radius: 2px; }
   .legend .sw.cargo { background: rgba(148, 163, 184, 0.20); border: 1px dashed #64748b; border-radius: 1px; }
 
-  .toolbar {
-    display: flex; gap: 6px;
-  }
-  .toolbar button {
-    background: #0b1220; color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 4px 12px; cursor: pointer; font: 12px ui-monospace, Menlo, monospace;
-    min-width: 32px;
-  }
-  .toolbar button:hover { border-color: var(--accent); }
-
-  /* Detail card */
+  /* Detail card (right drawer) */
   .detail h2 { margin: 0 0 4px; font-size: 16px; }
   .detail .meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
-  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: 12px; }
+  .kv { display: grid; grid-template-columns: 100px 1fr; gap: 6px 10px; font-size: 12px; }
   .kv dt { color: var(--muted); }
   .kv dd { margin: 0; word-break: break-word; }
   .empty {
     color: var(--muted); font-style: italic; padding: 24px 14px;
   }
   textarea {
-    width: 100%; min-height: 80px;
+    width: 100%; min-height: 70px;
     background: #0b1220; color: var(--text);
     border: 1px solid var(--border); border-radius: 6px;
     padding: 8px; resize: vertical; font: inherit;
   }
 
-  /* Results list */
+  /* Results list (left drawer) */
   .results { padding: 0; margin: 0; list-style: none; }
   .results li {
     padding: 8px 14px; border-bottom: 1px solid var(--border);
@@ -296,43 +274,63 @@
     padding: 6px 8px; font: 11px ui-monospace, Menlo, monospace;
     transform: translate(-50%, -130%);
     white-space: nowrap; opacity: 0; transition: opacity 80ms;
-    z-index: 5;
+    z-index: 25;
   }
   .tip.on { opacity: 1; }
 
-  /* Mobile */
-  @media (max-width: 900px) {
-    .app {
-      grid-template-columns: 1fr;
-      grid-template-rows: 48px auto 1fr auto;
-      grid-template-areas:
-        "top"
-        "left"
-        "main"
-        "right";
-    }
-    .left, .right { max-height: 35vh; }
-    header input[type="search"] { width: 140px; }
-    header .hbtn { padding: 4px 8px; font-size: 11px; }
-    .legend { font-size: 10px; padding: 6px 8px; flex-wrap: wrap; max-width: 60%; }
-    /* When map hidden on mobile, give the area to the in-place list view
-       and free up left/right panels from their 35vh cap */
-    .hide-map .left, .hide-map .right { max-height: 45vh; }
-    .hide-map main { min-height: 40vh; }
+  .mini-btns { display: flex; gap: 4px; margin-bottom: 6px; }
+  .mini-btns button {
+    flex: 1; padding: 4px 6px; font-size: 11px;
+    background: #0b1220; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 4px;
+    cursor: pointer;
   }
+  .mini-btns button:hover { color: var(--text); border-color: var(--accent); }
+
+  /* Mobile — drawers default collapsed, slimmer toggles */
+  @media (max-width: 768px) {
+    :root { --drawer-w: 86vw; }
+    header .title { font-size: 12px; }
+    header .sub { display: none; }
+    header input[type="search"] { width: 130px; }
+    header .hbtn { padding: 4px 7px; font-size: 11px; }
+    .legend { font-size: 10px; padding: 4px 7px; max-width: 60%; }
+    .map-footer { font-size: 10px; padding: 4px 8px; }
+  }
+
+  /* Print stylesheet */
+  @media print {
+    body { background: #fff; color: #0f172a; }
+    .app { display: block; height: auto; }
+    header, .left, .right, .drawer-toggle, .map-footer { display: none !important; }
+    main { background: #fff; height: auto; }
+    .map-wrap { position: relative; height: 60vh; }
+    .toolbar, .tip, .legend { display: none !important; }
+    .print-only { display: block !important; }
+    .print-only h1 { font: 700 16px ui-sans-serif; margin: 0 0 6px; }
+    .print-only .meta { font: 11px ui-monospace; color: #475569; margin-bottom: 10px; }
+    .print-only table { width: 100%; border-collapse: collapse; font: 10px ui-sans-serif; }
+    .print-only th, .print-only td {
+      border: 1px solid #cbd5e1; padding: 4px 6px; text-align: left;
+    }
+    .print-only th { background: #f1f5f9; }
+  }
+  .print-only { display: none; }
 </style>
 </head>
 <body>
 <div class="app">
   <header>
     <div class="title">A330 Cabin Map</div>
-    <div class="sub">Galley / Lavatory · MVP</div>
-    <div class="search">
-      <button class="hbtn" id="btn-hide-map" title="Toggle map visibility">Hide Map</button>
-      <button class="hbtn" id="btn-print" title="Print / save as PDF">Print / PDF</button>
-      <input id="q" type="search" placeholder="Ara: L11, Lav A, 5001MT, Z220, FR30, 25-41-41" autocomplete="off" />
-    </div>
+    <div class="sub">Vertical layout · MVP</div>
+    <div class="spacer"></div>
+    <button class="hbtn" id="btn-hide-map" title="Toggle map / list view">Hide Map</button>
+    <button class="hbtn" id="btn-print" title="Print / save as PDF">Print / PDF</button>
+    <input id="q" type="search" placeholder="Ara: 271QF, L11, 5001MT, Z220, FR30" autocomplete="off" />
   </header>
+
+  <button class="drawer-toggle left-toggle"  id="toggle-left"  title="Toggle data panel">☰</button>
+  <button class="drawer-toggle right-toggle" id="toggle-right" title="Toggle detail panel">ℹ</button>
 
   <aside class="left">
     <div class="section">
@@ -362,16 +360,11 @@
       </div>
       <div class="row"><input type="checkbox" id="f-lav" checked><label for="f-lav">Lavatories</label></div>
       <div class="row"><input type="checkbox" id="f-gal" checked><label for="f-gal">Galleys</label></div>
-      <div class="row"><input type="checkbox" id="f-pel" checked><label for="f-pel">Pelmets</label></div>
-      <div class="row"><input type="checkbox" id="f-cel" checked><label for="f-cel">Ceilings</label></div>
-      <div class="row"><input type="checkbox" id="f-par" checked><label for="f-par">Partitions</label></div>
-      <div class="row"><input type="checkbox" id="f-flr" checked><label for="f-flr">Floor Panels</label></div>
+      <div class="row"><input type="checkbox" id="f-flr"><label for="f-flr">Floor Panels</label></div>
       <div class="row"><input type="checkbox" id="f-zone" checked><label for="f-zone">Zones</label></div>
       <div class="row"><input type="checkbox" id="f-cargo" checked><label for="f-cargo">Cabin Areas</label></div>
       <div class="row"><input type="checkbox" id="f-frame" checked><label for="f-frame">Frames</label></div>
-      <div class="row"><input type="checkbox" id="f-code" checked><label for="f-code">Equipment Codes</label></div>
       <div class="row"><input type="checkbox" id="f-labels" checked><label for="f-labels">Labels</label></div>
-      <div class="row"><input type="checkbox" id="f-spread" checked><label for="f-spread" title="Auto-fan overlapping hotspots">Auto-spread overlaps</label></div>
     </div>
     <div class="section">
       <h3>Zone Mode</h3>
@@ -393,9 +386,6 @@
       <div class="row"><select id="add-type">
         <option value="lavatory">Lavatory</option>
         <option value="galley">Galley</option>
-        <option value="pelmet">Pelmet</option>
-        <option value="ceiling">Ceiling</option>
-        <option value="partition">Partition</option>
         <option value="floor">Floor Panel</option>
       </select></div>
       <div class="row"><input type="text" id="add-name" placeholder="Name (e.g. Lavatory F)"></div>
@@ -408,8 +398,8 @@
       </div>
       <div class="row"><input type="text" id="add-ref" placeholder="Reference (e.g. 25-44-11)"></div>
       <div class="row">
-        <input type="text" id="add-x" placeholder="x 0–100">
-        <input type="text" id="add-y" placeholder="y 0–100">
+        <input type="text" id="add-x" placeholder="x 0–100 (length)">
+        <input type="text" id="add-y" placeholder="y 0–100 (width)">
       </div>
       <button class="btn" id="add-save" style="margin-top:6px">Add to current aircraft</button>
       <div id="add-msg" style="margin-top:6px;color:var(--muted);font-size:11px"></div>
@@ -418,6 +408,7 @@
       <h3>Data</h3>
       <button class="btn" id="export-btn">Export JSON (current aircraft)</button>
       <button class="btn" id="import-btn" style="margin-top:6px">Import JSON</button>
+      <button class="btn" id="reset-prefs" style="margin-top:6px;border-color:rgba(239,68,68,.4);color:#fca5a5">Reset all preferences</button>
       <input type="file" id="import-file" accept="application/json,.json" style="display:none">
       <div id="data-msg" style="margin-top:6px;color:var(--muted);font-size:11px"></div>
     </div>
@@ -429,14 +420,13 @@
 
   <main>
     <div class="map-wrap">
-      <svg class="cabin" id="svg" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet">
+      <svg class="cabin" id="svg" viewBox="0 0 360 1400" preserveAspectRatio="xMidYMid meet">
         <defs>
           <marker id="leader-arrow" viewBox="0 0 10 10" refX="9" refY="5"
                   markerWidth="6" markerHeight="6" orient="auto">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
           </marker>
         </defs>
-        <!-- Layers populated by JS -->
         <g id="layer-fuselage"></g>
         <g id="layer-cargo"></g>
         <g id="layer-zones"></g>
@@ -447,27 +437,24 @@
         <g id="layer-hotspots"></g>
         <g id="layer-labels"></g>
       </svg>
-      <div class="print-only" id="print-area" style="padding:14px"></div>
       <div class="legend">
         <span><span class="sw lav"></span>Lavatory</span>
         <span><span class="sw gal"></span>Galley</span>
-        <span><span class="sw pel"></span>Pelmet</span>
-        <span><span class="sw cel"></span>Ceiling</span>
-        <span><span class="sw par"></span>Partition</span>
         <span><span class="sw flr"></span>Floor</span>
         <span><span class="sw zone"></span>Zone</span>
         <span><span class="sw cargo"></span>Cabin</span>
       </div>
       <div class="tip" id="tip"></div>
       <div class="map-list-view" id="map-list-view"></div>
+      <div class="print-only" id="print-area" style="padding:14px"></div>
     </div>
     <div class="map-footer">
-      <span id="footer-hint">Drag to pan · Pinch / wheel to zoom · Click a hotspot for details</span>
+      <span id="footer-hint">Click a zone to enter focus · ⤺ exits focus · Drag to pan · Pinch / wheel to zoom · Esc clears selection</span>
       <span class="spacer"></span>
       <div class="toolbar">
-        <button id="zoom-out" title="Zoom out">−</button>
+        <button id="zoom-out"  title="Zoom out">−</button>
         <button id="zoom-reset" title="Reset view">⤺</button>
-        <button id="zoom-in" title="Zoom in">+</button>
+        <button id="zoom-in"   title="Zoom in">+</button>
       </div>
     </div>
   </main>
@@ -479,25 +466,80 @@
 
 <script>
 /* ============================================================
-   A330 Cabin Map — single-file MVP
+   A330 Cabin Map — vertical layout, single file
    ============================================================ */
 
-/* ---------- DATA ---------- */
-// Per-aircraft definitions. All x values are 0..100 along usable cabin length.
-// y values: 0 = top side of fuselage, 100 = bottom side. 50 = centerline.
-// Real LOPA values must be confirmed against AMM/IPC — these are starter data.
+/* ---------- Floor-panel generator (cabin) ----------
+   Generates panels per Airbus-style code [zone][suffix] for the
+   FWD/MID/AFT cabin Z210–Z270. Each panel gets a distinct (x, y)
+   based on its position along the zone so the iterative spreader
+   can render them legibly.
+*/
+const FLOOR_ZONES_A330 = [
+  // FWD cabin
+  { zone: "111", side: "port",      x1:  3, x2: 12, xZone: "Z210", fr: ["FR1",  "FR11"] },
+  { zone: "112", side: "starboard", x1:  3, x2: 12, xZone: "Z210", fr: ["FR1",  "FR11"] },
+  { zone: "121", side: "port",      x1: 12, x2: 22, xZone: "Z220", fr: ["FR11", "FR22"] },
+  { zone: "122", side: "starboard", x1: 12, x2: 22, xZone: "Z220", fr: ["FR11", "FR22"] },
+  { zone: "131", side: "port",      x1: 22, x2: 30, xZone: "Z230", fr: ["FR22", "FR30"] },
+  { zone: "132", side: "starboard", x1: 22, x2: 30, xZone: "Z230", fr: ["FR22", "FR30"] },
+  // MID cabin
+  { zone: "211", side: "port",      x1: 30, x2: 38, xZone: "Z230", fr: ["FR30", "FR36"] },
+  { zone: "212", side: "starboard", x1: 30, x2: 38, xZone: "Z230", fr: ["FR30", "FR36"] },
+  { zone: "221", side: "port",      x1: 38, x2: 46, xZone: "Z240", fr: ["FR36", "FR42"] },
+  { zone: "222", side: "starboard", x1: 38, x2: 46, xZone: "Z240", fr: ["FR36", "FR42"] },
+  { zone: "231", side: "port",      x1: 46, x2: 53, xZone: "Z240", fr: ["FR42", "FR50"] },
+  { zone: "232", side: "starboard", x1: 46, x2: 53, xZone: "Z240", fr: ["FR42", "FR50"] },
+  { zone: "241", side: "port",      x1: 53, x2: 60, xZone: "Z250", fr: ["FR50", "FR60"] },
+  { zone: "242", side: "starboard", x1: 53, x2: 60, xZone: "Z250", fr: ["FR50", "FR60"] },
+  { zone: "251", side: "port",      x1: 60, x2: 67, xZone: "Z250", fr: ["FR60", "FR65"] },
+  { zone: "252", side: "starboard", x1: 60, x2: 67, xZone: "Z250", fr: ["FR60", "FR65"] },
+  // AFT cabin
+  { zone: "261", side: "port",      x1: 67, x2: 75, xZone: "Z260", fr: ["FR65", "FR70"] },
+  { zone: "262", side: "starboard", x1: 67, x2: 75, xZone: "Z260", fr: ["FR65", "FR70"] },
+  { zone: "271", side: "port",      x1: 75, x2: 84, xZone: "Z270", fr: ["FR70", "FR75"] },
+  { zone: "272", side: "starboard", x1: 75, x2: 84, xZone: "Z270", fr: ["FR70", "FR75"] },
+  { zone: "281", side: "port",      x1: 84, x2: 92, xZone: "Z270", fr: ["FR75", "FR82"] },
+  { zone: "282", side: "starboard", x1: 84, x2: 92, xZone: "Z270", fr: ["FR75", "FR82"] }
+];
+// Panel-type suffixes (representative set covering AMM 53 conventions).
+// Replace via JSON import to match the exact figures.
+const PANEL_SUFFIXES = ["AF", "BF", "CF", "DF", "EF", "NF", "PF", "QF", "RF", "SF"];
 
+function genFloorPanels() {
+  const out = [];
+  FLOOR_ZONES_A330.forEach(z => {
+    PANEL_SUFFIXES.forEach((suf, i) => {
+      const t = (i + 0.5) / PANEL_SUFFIXES.length;
+      const xc = z.x1 + t * (z.x2 - z.x1);
+      // Port side roughly y=32, starboard y=68. Small jitter so identical
+      // (zone,position) variants don't sit perfectly coincident.
+      const baseY = z.side === "port" ? 32 : 68;
+      const yc = baseY + ((i % 3) - 1) * 3;
+      const code = `${z.zone}${suf}`;
+      out.push({
+        id: `FLR-${code}`,
+        type: "floor",
+        name: `Floor Panel ${code}`,
+        location: `L${z.zone}${suf.charAt(0)}`,
+        code: code,
+        zone: [z.xZone],
+        frames: { from: z.fr[0], to: z.fr[1] },
+        reference: `06-41-53-${z.zone}`,
+        x: xc, y: yc,
+        description: `${z.side === "port" ? "Port" : "Starboard"} cabin floor panel ${code}`
+      });
+    });
+  });
+  return out;
+}
+
+/* ---------- Aircraft data ---------- */
 const aircraftDefs = {
   "A330-300": {
-    // Visual proportions on the map (fraction of available width used for fuselage body)
     bodyFrac: 1.00,
-    wingX: 50,           // wing root center along cabin length (0..100)
-    // Engine nacelles (relative to wingX; offset along Y from fuselage edge)
-    engines: [
-      { side: "left",  xOff: 8, yOff: 22 },
-      { side: "right", xOff: 8, yOff: 22 }
-    ],
-    // Cargo compartments (below main deck — overlaid as dashed boxes)
+    wingX: 50,
+    engines: [{ side: "left", offset: 95 }, { side: "right", offset: 95 }],
     cargo: [
       { id: "FWD",  x1: 22, x2: 46, label: "FWD CARGO",  volume: "107 m³ (3778.6 ft³)" },
       { id: "AFT",  x1: 54, x2: 75, label: "AFT CARGO",  volume: "85.7 m³ (3026.5 ft³)" },
@@ -523,7 +565,7 @@ const aircraftDefs = {
       { id: "DOOR 3L/R", x: 60 }, { id: "DOOR 4L/R", x: 88 }
     ],
     items: [
-      // LAVATORIES
+      // LAVATORIES (THY A330-300, from AMM figures)
       { id: "LAV-A-L11", type: "lavatory", name: "Lavatory A", location: "L11",
         code: "5001MT", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
         reference: "25-41-41", x: 18, y: 35, description: "Forward lavatory area" },
@@ -536,27 +578,21 @@ const aircraftDefs = {
       { id: "LAV-Z-L74", type: "lavatory", name: "Lavatory Z", location: "L74",
         code: "5005MT", zone: ["Z260", "Z270"], frames: { from: "FR70", to: "FR75" },
         reference: "25-43-42", x: 82, y: 65, description: "Aft lavatory area" },
-
-      // FWD GALLEYS (G1 cluster, Z210–Z230, FR11–FR20, around FWD PAX DOOR)
+      // FWD GALLEYS
       { id: "GAL-G1F", type: "galley", name: "Galley G1F", location: "L1",
         code: "6489ML", zone: ["Z210", "Z220", "Z230"], frames: { from: "FR11", to: "FR20" },
         reference: "25-31-59", x: 11, y: 50, description: "FWD galley, forward of FWD pax door" },
       { id: "GAL-G1A", type: "galley", name: "Galley G1A", location: "L4",
         code: "6491ML", zone: ["Z210", "Z220", "Z230"], frames: { from: "FR11", to: "FR20" },
         reference: "25-31-51", x: 17, y: 50, description: "FWD galley, aft of FWD pax door" },
-
-      // MID GALLEYS (G2 cluster, Z240–Z250, FR32–FR37.1)
+      // MID GALLEYS
       { id: "GAL-G2F", type: "galley", name: "Galley G2F", location: "L40",
         code: "6505ML", zone: ["Z240", "Z250"], frames: { from: "FR32", to: "FR37" },
         reference: "25-32-61", x: 34, y: 35, description: "Mid galley, forward" },
       { id: "GAL-G2A", type: "galley", name: "Galley G2A", location: "L41",
         code: "6506ML", zone: ["Z240", "Z250"], frames: { from: "FR32", to: "FR37" },
         reference: "25-32-62", x: 38, y: 65, description: "Mid galley, aft" },
-      { id: "PEL-G2", type: "pelmet", name: "Pelmet G2F/G2A", location: "L42",
-        code: "6517ML", zone: ["Z240", "Z250"], frames: { from: "FR32", to: "FR37" },
-        reference: "25-32-65", x: 36, y: 15, description: "Overhead pelmet above G2 galleys" },
-
-      // AFT GALLEYS (G4 cluster, Z270, FR72–FR80)
+      // AFT GALLEYS
       { id: "GAL-G4F", type: "galley", name: "Galley G4F", location: "L78",
         code: "6525ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
         reference: "25-33-56", x: 74, y: 50, description: "AFT galley, forward of aft cluster" },
@@ -566,137 +602,29 @@ const aircraftDefs = {
       { id: "GAL-G4R", type: "galley", name: "Galley G4R", location: "L80",
         code: "6528ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
         reference: "25-33-52", x: 80, y: 70, description: "AFT galley, starboard" },
-      { id: "CEL-G4", type: "ceiling", name: "Ceiling G4R/G4L", location: "L81",
-        code: "6532ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
-        reference: "25-33-54", x: 82, y: 15, description: "AFT galley ceiling assy" },
-      { id: "PAR-AFT", type: "partition", name: "AFT Partition", location: "L82",
-        code: "6535ML", zone: ["Z270"], frames: { from: "FR72", to: "FR80" },
-        reference: "25-33-55", x: 87, y: 50, description: "AFT cabin partition" },
-
-      // FLOOR PANELS — individually addressable panels with Airbus-style codes
-      // (NNN[L]F: NNN = panel position, L = type, F = floor). Sample dataset
-      // including user-referenced 271NF. Replace with full AMM 53 IPC data via JSON import.
-      // FWD cabin floor (Z210–Z230)
-      { id: "FLR-111NF", type: "floor", name: "Floor Panel 111NF", location: "L111",
-        code: "111NF", zone: ["Z210"], frames: { from: "FR1", to: "FR11" },
-        reference: "53-15-11", x: 7, y: 35, description: "FWD cabin floor panel, port" },
-      { id: "FLR-112NF", type: "floor", name: "Floor Panel 112NF", location: "L112",
-        code: "112NF", zone: ["Z210"], frames: { from: "FR1", to: "FR11" },
-        reference: "53-15-12", x: 7, y: 65, description: "FWD cabin floor panel, starboard" },
-      { id: "FLR-121NF", type: "floor", name: "Floor Panel 121NF", location: "L121",
-        code: "121NF", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
-        reference: "53-15-21", x: 19, y: 40, description: "FWD cabin floor panel, port" },
-      { id: "FLR-122NF", type: "floor", name: "Floor Panel 122NF", location: "L122",
-        code: "122NF", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
-        reference: "53-15-22", x: 19, y: 60, description: "FWD cabin floor panel, starboard" },
-      { id: "FLR-131NF", type: "floor", name: "Floor Panel 131NF", location: "L131",
-        code: "131NF", zone: ["Z230"], frames: { from: "FR22", to: "FR30" },
-        reference: "53-15-31", x: 27, y: 40, description: "FWD/MID cabin floor panel, port" },
-      { id: "FLR-132NF", type: "floor", name: "Floor Panel 132NF", location: "L132",
-        code: "132NF", zone: ["Z230"], frames: { from: "FR22", to: "FR30" },
-        reference: "53-15-32", x: 27, y: 60, description: "FWD/MID cabin floor panel, starboard" },
-      // MID cabin floor (Z240–Z250)
-      { id: "FLR-211NF", type: "floor", name: "Floor Panel 211NF", location: "L211",
-        code: "211NF", zone: ["Z240"], frames: { from: "FR36", to: "FR42" },
-        reference: "53-15-41", x: 41, y: 40, description: "MID cabin floor panel, port" },
-      { id: "FLR-212NF", type: "floor", name: "Floor Panel 212NF", location: "L212",
-        code: "212NF", zone: ["Z240"], frames: { from: "FR36", to: "FR42" },
-        reference: "53-15-42", x: 41, y: 60, description: "MID cabin floor panel, starboard" },
-      { id: "FLR-221NF", type: "floor", name: "Floor Panel 221NF", location: "L221",
-        code: "221NF", zone: ["Z250"], frames: { from: "FR50", to: "FR60" },
-        reference: "53-15-51", x: 56, y: 40, description: "MID cabin floor panel, port" },
-      { id: "FLR-222NF", type: "floor", name: "Floor Panel 222NF", location: "L222",
-        code: "222NF", zone: ["Z250"], frames: { from: "FR50", to: "FR60" },
-        reference: "53-15-52", x: 56, y: 60, description: "MID cabin floor panel, starboard" },
-      // AFT cabin floor (Z260–Z270)
-      { id: "FLR-261NF", type: "floor", name: "Floor Panel 261NF", location: "L261",
-        code: "261NF", zone: ["Z260"], frames: { from: "FR60", to: "FR70" },
-        reference: "53-15-61", x: 68, y: 40, description: "AFT cabin floor panel, port" },
-      { id: "FLR-262NF", type: "floor", name: "Floor Panel 262NF", location: "L262",
-        code: "262NF", zone: ["Z260"], frames: { from: "FR60", to: "FR70" },
-        reference: "53-15-62", x: 68, y: 60, description: "AFT cabin floor panel, starboard" },
-      { id: "FLR-271NF", type: "floor", name: "Floor Panel 271NF", location: "L271",
-        code: "271NF", zone: ["Z270"], frames: { from: "FR70", to: "FR75" },
-        reference: "53-15-71", x: 76, y: 40, description: "AFT cabin floor panel, port" },
-      { id: "FLR-272NF", type: "floor", name: "Floor Panel 272NF", location: "L272",
-        code: "272NF", zone: ["Z270"], frames: { from: "FR70", to: "FR75" },
-        reference: "53-15-72", x: 76, y: 60, description: "AFT cabin floor panel, starboard" },
-      { id: "FLR-281NF", type: "floor", name: "Floor Panel 281NF", location: "L281",
-        code: "281NF", zone: ["Z270"], frames: { from: "FR75", to: "FR82" },
-        reference: "53-15-81", x: 84, y: 40, description: "AFT cabin floor panel, port" },
-      { id: "FLR-282NF", type: "floor", name: "Floor Panel 282NF", location: "L282",
-        code: "282NF", zone: ["Z270"], frames: { from: "FR75", to: "FR82" },
-        reference: "53-15-82", x: 84, y: 60, description: "AFT cabin floor panel, starboard" },
-      // QF variants — paired with the NF set at the same positions
-      { id: "FLR-111QF", type: "floor", name: "Floor Panel 111QF", location: "L111",
-        code: "111QF", zone: ["Z210"], frames: { from: "FR1", to: "FR11" },
-        reference: "53-15-11Q", x: 7, y: 35, description: "FWD cabin floor panel (Q variant), port" },
-      { id: "FLR-112QF", type: "floor", name: "Floor Panel 112QF", location: "L112",
-        code: "112QF", zone: ["Z210"], frames: { from: "FR1", to: "FR11" },
-        reference: "53-15-12Q", x: 7, y: 65, description: "FWD cabin floor panel (Q variant), starboard" },
-      { id: "FLR-121QF", type: "floor", name: "Floor Panel 121QF", location: "L121",
-        code: "121QF", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
-        reference: "53-15-21Q", x: 19, y: 40, description: "FWD cabin floor panel (Q variant), port" },
-      { id: "FLR-122QF", type: "floor", name: "Floor Panel 122QF", location: "L122",
-        code: "122QF", zone: ["Z220"], frames: { from: "FR11", to: "FR22" },
-        reference: "53-15-22Q", x: 19, y: 60, description: "FWD cabin floor panel (Q variant), starboard" },
-      { id: "FLR-131QF", type: "floor", name: "Floor Panel 131QF", location: "L131",
-        code: "131QF", zone: ["Z230"], frames: { from: "FR22", to: "FR30" },
-        reference: "53-15-31Q", x: 27, y: 40, description: "FWD/MID cabin floor panel (Q variant), port" },
-      { id: "FLR-132QF", type: "floor", name: "Floor Panel 132QF", location: "L132",
-        code: "132QF", zone: ["Z230"], frames: { from: "FR22", to: "FR30" },
-        reference: "53-15-32Q", x: 27, y: 60, description: "FWD/MID cabin floor panel (Q variant), starboard" },
-      { id: "FLR-211QF", type: "floor", name: "Floor Panel 211QF", location: "L211",
-        code: "211QF", zone: ["Z240"], frames: { from: "FR36", to: "FR42" },
-        reference: "53-15-41Q", x: 41, y: 40, description: "MID cabin floor panel (Q variant), port" },
-      { id: "FLR-212QF", type: "floor", name: "Floor Panel 212QF", location: "L212",
-        code: "212QF", zone: ["Z240"], frames: { from: "FR36", to: "FR42" },
-        reference: "53-15-42Q", x: 41, y: 60, description: "MID cabin floor panel (Q variant), starboard" },
-      { id: "FLR-221QF", type: "floor", name: "Floor Panel 221QF", location: "L221",
-        code: "221QF", zone: ["Z250"], frames: { from: "FR50", to: "FR60" },
-        reference: "53-15-51Q", x: 56, y: 40, description: "MID cabin floor panel (Q variant), port" },
-      { id: "FLR-222QF", type: "floor", name: "Floor Panel 222QF", location: "L222",
-        code: "222QF", zone: ["Z250"], frames: { from: "FR50", to: "FR60" },
-        reference: "53-15-52Q", x: 56, y: 60, description: "MID cabin floor panel (Q variant), starboard" },
-      { id: "FLR-261QF", type: "floor", name: "Floor Panel 261QF", location: "L261",
-        code: "261QF", zone: ["Z260"], frames: { from: "FR60", to: "FR70" },
-        reference: "53-15-61Q", x: 68, y: 40, description: "AFT cabin floor panel (Q variant), port" },
-      { id: "FLR-262QF", type: "floor", name: "Floor Panel 262QF", location: "L262",
-        code: "262QF", zone: ["Z260"], frames: { from: "FR60", to: "FR70" },
-        reference: "53-15-62Q", x: 68, y: 60, description: "AFT cabin floor panel (Q variant), starboard" },
-      { id: "FLR-271QF", type: "floor", name: "Floor Panel 271QF", location: "L271",
-        code: "271QF", zone: ["Z270"], frames: { from: "FR70", to: "FR75" },
-        reference: "53-15-71Q", x: 76, y: 40, description: "AFT cabin floor panel (Q variant), port" },
-      { id: "FLR-272QF", type: "floor", name: "Floor Panel 272QF", location: "L272",
-        code: "272QF", zone: ["Z270"], frames: { from: "FR70", to: "FR75" },
-        reference: "53-15-72Q", x: 76, y: 60, description: "AFT cabin floor panel (Q variant), starboard" },
-      { id: "FLR-281QF", type: "floor", name: "Floor Panel 281QF", location: "L281",
-        code: "281QF", zone: ["Z270"], frames: { from: "FR75", to: "FR82" },
-        reference: "53-15-81Q", x: 84, y: 40, description: "AFT cabin floor panel (Q variant), port" },
-      { id: "FLR-282QF", type: "floor", name: "Floor Panel 282QF", location: "L282",
-        code: "282QF", zone: ["Z270"], frames: { from: "FR75", to: "FR82" },
-        reference: "53-15-82Q", x: 84, y: 60, description: "AFT cabin floor panel (Q variant), starboard" },
-      // Cargo floor panels (belly)
+      // FLOOR PANELS (generated)
+      ...genFloorPanels(),
+      // CARGO FLOOR PANELS (belly)
       { id: "FLR-311CF", type: "floor", name: "Cargo Floor 311CF", location: "C311",
         code: "311CF", zone: ["Z140"], frames: { from: "FR22", to: "FR40" },
-        reference: "53-16-11", x: 30, y: 88, description: "FWD cargo floor panel" },
+        reference: "53-16-11", x: 30, y: 50, description: "FWD cargo floor panel" },
       { id: "FLR-321CF", type: "floor", name: "Cargo Floor 321CF", location: "C321",
         code: "321CF", zone: ["Z140"], frames: { from: "FR40", to: "FR47" },
-        reference: "53-16-12", x: 42, y: 88, description: "FWD cargo floor panel" },
+        reference: "53-16-12", x: 42, y: 50, description: "FWD cargo floor panel" },
       { id: "FLR-411CF", type: "floor", name: "Cargo Floor 411CF", location: "C411",
         code: "411CF", zone: ["Z150"], frames: { from: "FR47", to: "FR58" },
-        reference: "53-16-21", x: 56, y: 88, description: "AFT cargo floor panel" },
+        reference: "53-16-21", x: 56, y: 50, description: "AFT cargo floor panel" },
       { id: "FLR-421CF", type: "floor", name: "Cargo Floor 421CF", location: "C421",
         code: "421CF", zone: ["Z150"], frames: { from: "FR58", to: "FR65" },
-        reference: "53-16-22", x: 67, y: 88, description: "AFT cargo floor panel" },
+        reference: "53-16-22", x: 67, y: 50, description: "AFT cargo floor panel" },
       { id: "FLR-511BF", type: "floor", name: "Bulk Floor 511BF", location: "C511",
         code: "511BF", zone: ["Z160"], frames: { from: "FR65", to: "FR75" },
-        reference: "53-16-31", x: 79, y: 88, description: "BULK cargo floor panel" }
+        reference: "53-16-31", x: 79, y: 50, description: "BULK cargo floor panel" }
     ]
   },
   "A321": {
-    bodyFrac: 0.92,
-    wingX: 48,
+    bodyFrac: 0.92, wingX: 48,
+    engines: [{ side: "left", offset: 80 }, { side: "right", offset: 80 }],
     zones: [
       { id: "Z100", x1:  2, x2: 18 },
       { id: "Z200", x1: 18, x2: 50 },
@@ -731,8 +659,8 @@ const aircraftDefs = {
     ]
   },
   "A320": {
-    bodyFrac: 0.80,
-    wingX: 50,
+    bodyFrac: 0.80, wingX: 50,
+    engines: [{ side: "left", offset: 75 }, { side: "right", offset: 75 }],
     zones: [
       { id: "Z100", x1:  2, x2: 22 },
       { id: "Z200", x1: 22, x2: 75 },
@@ -766,8 +694,8 @@ const aircraftDefs = {
     ]
   },
   "A319": {
-    bodyFrac: 0.72,
-    wingX: 50,
+    bodyFrac: 0.72, wingX: 50,
+    engines: [{ side: "left", offset: 70 }, { side: "right", offset: 70 }],
     zones: [
       { id: "Z100", x1:  2, x2: 24 },
       { id: "Z200", x1: 24, x2: 72 },
@@ -799,16 +727,30 @@ const aircraftDefs = {
   }
 };
 
-// Custom items added through the UI are persisted in localStorage, keyed by aircraft id.
+/* ---------- localStorage ---------- */
 const CUSTOM_KEY = "a330-cabin-custom-v1";
-function loadCustom() {
-  try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || "{}"); }
-  catch { return {}; }
-}
-function saveCustom(map) {
-  localStorage.setItem(CUSTOM_KEY, JSON.stringify(map));
-}
+const NOTE_KEY   = "a330-cabin-notes-v1";
+const PREFS_KEY  = "a330-cabin-prefs-v3";
 
+function loadCustom() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || "{}"); } catch { return {}; }
+}
+function saveCustom(map) { localStorage.setItem(CUSTOM_KEY, JSON.stringify(map)); }
+function loadNotes() {
+  try { return JSON.parse(localStorage.getItem(NOTE_KEY) || "{}"); } catch { return {}; }
+}
+function loadNote(id) { return loadNotes()[id] || ""; }
+function saveNote(id, v) {
+  const all = loadNotes();
+  if (v && v.trim()) all[id] = v; else delete all[id];
+  localStorage.setItem(NOTE_KEY, JSON.stringify(all));
+}
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); } catch { return {}; }
+}
+function savePrefs(p) { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); }
+
+/* ---------- Aircraft state ---------- */
 let CURRENT_AC = "A330-300";
 function currentDef() { return aircraftDefs[CURRENT_AC]; }
 function currentItems() {
@@ -816,9 +758,9 @@ function currentItems() {
   const extra = (loadCustom()[CURRENT_AC] || []);
   return base.concat(extra);
 }
-// Convenience aliases used by the rest of the code
 let cabinItems = [], zones = [], frames = [], doors = [];
 function loadAircraft(id) {
+  if (!aircraftDefs[id]) id = "A330-300";
   CURRENT_AC = id;
   cabinItems = currentItems();
   zones  = currentDef().zones;
@@ -826,22 +768,33 @@ function loadAircraft(id) {
   doors  = currentDef().doors;
 }
 
-/* ---------- LAYOUT ---------- */
-// SVG viewBox: 1000 x 260
-const VB_W = 1000, VB_H = 260;
-const MARGIN_X = 40;
-const FUS_TOP = 70;
-const FUS_BOT = 200;
-const FUS_W = VB_W - MARGIN_X * 2;
+/* ---------- Layout — VERTICAL ----------
+   item.x (0..100) → position ALONG length (top=nose, bottom=tail)
+   item.y (0..100) → position ACROSS width (0=port, 50=center, 100=starboard)
+*/
+const VB_W = 360, VB_H = 1400;
+const MARGIN_LEN = 60;
+const FUS_HALF_W = 38;          // fuselage half-width in SVG units
+const CENTER_X = VB_W / 2;
 
-function xPct(p) {
-  const g = window.__GEO;
-  if (g) return g.noseX + (p / 100) * g.usableW;
-  return MARGIN_X + (p / 100) * FUS_W;
+function geoLen() {
+  const def = currentDef();
+  const usable = (VB_H - 2 * MARGIN_LEN) * def.bodyFrac;
+  const noseY = MARGIN_LEN + ((VB_H - 2 * MARGIN_LEN) - usable) / 2;
+  return { noseY, tailY: noseY + usable, usable };
 }
-const yPct = p => FUS_TOP + (p / 100) * (FUS_BOT - FUS_TOP);
+// SVG y from length percentage
+function posL(p) {
+  const g = geoLen();
+  return g.noseY + (p / 100) * g.usable;
+}
+// SVG x from width percentage
+function posW(p) {
+  return CENTER_X + (p - 50) / 50 * FUS_HALF_W;
+}
+function itemPos(it) { return { x: posW(it.y), y: posL(it.x) }; }
 
-/* ---------- RENDER ---------- */
+/* ---------- Render ---------- */
 const $ = s => document.querySelector(s);
 const svg = $("#svg");
 const NS = "http://www.w3.org/2000/svg";
@@ -854,330 +807,451 @@ function el(tag, attrs = {}, parent) {
 
 function renderFuselage() {
   const g = $("#layer-fuselage"); g.innerHTML = "";
+
+  // ---- ZONE FOCUS MODE ----
+  // When a zone is focused, draw only that zone's slice — a simple rounded
+  // rectangle representing just the cabin section. Nose, tail, wings,
+  // engines, stabilisers all disappear so the user sees ONLY the zone.
+  if (FOCUSED_ZONE) {
+    const cx = CENTER_X, halfW = FUS_HALF_W;
+    const y1 = posL(FOCUSED_ZONE.x1);
+    const y2 = posL(FOCUSED_ZONE.x2);
+    // Slice rectangle
+    el("rect", {
+      x: cx - halfW, y: y1,
+      width: 2 * halfW, height: y2 - y1,
+      rx: 6, ry: 6,
+      class: "fuselage"
+    }, g);
+    // Banner labels at top and bottom of the slice
+    el("text", {
+      x: cx, y: y1 - 20, "text-anchor": "middle",
+      fill: "#0f172a", "font-size": 13, "font-weight": 700,
+      "font-family": "ui-monospace, Menlo, monospace"
+    }, g).textContent = "▲ FWD";
+    el("text", {
+      x: cx, y: y1 - 4, "text-anchor": "middle",
+      fill: "#475569", "font-size": 11, "font-weight": 600,
+      "font-family": "ui-monospace, Menlo, monospace"
+    }, g).textContent = `${CURRENT_AC} · Zone ${FOCUSED_ZONE.id}`;
+    el("text", {
+      x: cx, y: y2 + 24, "text-anchor": "middle",
+      fill: "#0f172a", "font-size": 13, "font-weight": 700,
+      "font-family": "ui-monospace, Menlo, monospace"
+    }, g).textContent = "AFT ▼";
+    // Watermark
+    el("text", {
+      x: cx, y: (y1 + y2) / 2, "text-anchor": "middle",
+      fill: "rgba(15,23,42,0.08)", "font-size": 48, "font-weight": 800,
+      "font-family": "ui-sans-serif",
+      transform: `rotate(-90 ${cx} ${(y1 + y2) / 2})`
+    }, g).textContent = FOCUSED_ZONE.id;
+    return;
+  }
+
+  const { noseY, tailY, usable } = geoLen();
   const def = currentDef();
-  // Scale fuselage length to selected aircraft (visual cue: A319 < A320 < A321 < A330)
-  const usableW = (VB_W - MARGIN_X * 2) * def.bodyFrac;
-  const noseX = MARGIN_X + ((VB_W - MARGIN_X * 2) - usableW) / 2;
-  const tailX = noseX + usableW;
-  const top = FUS_TOP, bot = FUS_BOT, midY = (top + bot) / 2;
-  const noseLen = 36, tailLen = 60;
+  const cx = CENTER_X, halfW = FUS_HALF_W;
+  const noseLen = Math.min(80, usable * 0.07);
+  const tailLen = Math.min(110, usable * 0.10);
+  const wingY = noseY + (def.wingX / 100) * usable;
 
-  // Wings — drawn first so fuselage overlaps them
-  const wingCx = noseX + (def.wingX / 100) * usableW;
+  // Wings (port=left, starboard=right) — drawn first so fuselage sits on top
   el("path", {
-    d: `M ${wingCx - 30} ${bot - 4}
-        Q ${wingCx + 20} ${bot + 60}, ${wingCx + 80} ${bot + 18}
-        Q ${wingCx + 20} ${bot + 8}, ${wingCx - 10} ${bot}`,
-    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": "1"
+    d: `M ${cx - halfW + 4} ${wingY - 32}
+        Q ${cx - 78} ${wingY - 6}, ${cx - 138} ${wingY + 70}
+        Q ${cx - 78} ${wingY + 22}, ${cx - halfW + 6} ${wingY + 16} Z`,
+    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": 1
   }, g);
   el("path", {
-    d: `M ${wingCx - 30} ${top + 4}
-        Q ${wingCx + 20} ${top - 60}, ${wingCx + 80} ${top - 18}
-        Q ${wingCx + 20} ${top - 8}, ${wingCx - 10} ${top}`,
-    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": "1"
+    d: `M ${cx + halfW - 4} ${wingY - 32}
+        Q ${cx + 78} ${wingY - 6}, ${cx + 138} ${wingY + 70}
+        Q ${cx + 78} ${wingY + 22}, ${cx + halfW - 6} ${wingY + 16} Z`,
+    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": 1
   }, g);
 
-  // Engine nacelles (wing-mounted, top-down ovals)
+  // Engines (under wings, near outboard pylon)
   (def.engines || []).forEach(en => {
-    const yc = en.side === "left" ? top - en.yOff : bot + en.yOff;
-    const xc = wingCx + en.xOff;
-    el("ellipse", { cx: xc, cy: yc, rx: 11, ry: 5, class: "nacelle" }, g);
-    // Intake hint
-    el("ellipse", { cx: xc - 9, cy: yc, rx: 1.5, ry: 3, fill: "#1e293b" }, g);
+    const ex = en.side === "left" ? cx - en.offset : cx + en.offset;
+    const ey = wingY + 30;
+    el("ellipse", { cx: ex, cy: ey, rx: 7, ry: 16, class: "nacelle" }, g);
+    el("ellipse", { cx: ex, cy: ey + 14, rx: 3, ry: 2, fill: "#1e293b" }, g);
   });
+
   // Horizontal stabilizer near tail
-  const hsX = tailX - 28;
+  const hsY = tailY - 50;
   el("path", {
-    d: `M ${hsX} ${bot - 4} Q ${hsX + 14} ${bot + 22}, ${hsX + 36} ${bot + 8} Q ${hsX + 18} ${bot + 4}, ${hsX + 6} ${bot}`,
-    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": "1"
+    d: `M ${cx - halfW + 4} ${hsY}
+        Q ${cx - 36} ${hsY - 4}, ${cx - 58} ${hsY + 18}
+        Q ${cx - 30} ${hsY + 10}, ${cx - halfW + 8} ${hsY + 16} Z`,
+    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": 1
   }, g);
   el("path", {
-    d: `M ${hsX} ${top + 4} Q ${hsX + 14} ${top - 22}, ${hsX + 36} ${top - 8} Q ${hsX + 18} ${top - 4}, ${hsX + 6} ${top}`,
-    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": "1"
+    d: `M ${cx + halfW - 4} ${hsY}
+        Q ${cx + 36} ${hsY - 4}, ${cx + 58} ${hsY + 18}
+        Q ${cx + 30} ${hsY + 10}, ${cx + halfW - 8} ${hsY + 16} Z`,
+    fill: "#e2e8f0", stroke: "#94a3b8", "stroke-width": 1
   }, g);
 
-  // Fuselage with pointed nose (round) and tapered tail
+  // Fuselage body (rounded nose at top, tapered tail at bottom)
   const path = [
-    `M ${noseX + noseLen} ${top}`,
-    `L ${tailX - tailLen} ${top}`,
-    `Q ${tailX - 8} ${top + 6}, ${tailX} ${midY}`,
-    `Q ${tailX - 8} ${bot - 6}, ${tailX - tailLen} ${bot}`,
-    `L ${noseX + noseLen} ${bot}`,
-    `Q ${noseX} ${bot - 8}, ${noseX - 4} ${midY}`,
-    `Q ${noseX} ${top + 8}, ${noseX + noseLen} ${top} Z`
+    `M ${cx} ${noseY - 6}`,
+    `Q ${cx - halfW + 4} ${noseY + 4}, ${cx - halfW} ${noseY + noseLen}`,
+    `L ${cx - halfW} ${tailY - tailLen}`,
+    `Q ${cx - halfW + 6} ${tailY - 6}, ${cx - 6} ${tailY}`,
+    `L ${cx + 6} ${tailY}`,
+    `Q ${cx + halfW - 6} ${tailY - 6}, ${cx + halfW} ${tailY - tailLen}`,
+    `L ${cx + halfW} ${noseY + noseLen}`,
+    `Q ${cx + halfW - 4} ${noseY + 4}, ${cx} ${noseY - 6} Z`
   ].join(" ");
   el("path", { d: path, class: "fuselage" }, g);
 
-  // Cockpit windshield hint (top-down: small arc band just behind nose tip)
+  // Cockpit windshield
   el("path", {
-    d: `M ${noseX + 6} ${midY - 8} Q ${noseX + 18} ${midY - 14}, ${noseX + 28} ${midY - 10}
-        L ${noseX + 28} ${midY + 10} Q ${noseX + 18} ${midY + 14}, ${noseX + 6} ${midY + 8} Z`,
-    fill: "#cbd5e1", stroke: "#475569", "stroke-width": "0.8"
-  }, g);
-  // Vertical stabilizer (top-down view: rendered as a centerline diamond at the tail)
-  el("path", {
-    d: `M ${tailX - 36} ${midY} L ${tailX - 14} ${midY - 14} L ${tailX - 4} ${midY} L ${tailX - 14} ${midY + 14} Z`,
-    fill: "#94a3b8", stroke: "#334155", "stroke-width": "0.8"
+    d: `M ${cx - 12} ${noseY + 10}
+        Q ${cx - 16} ${noseY + 24}, ${cx - 14} ${noseY + 38}
+        L ${cx + 14} ${noseY + 38}
+        Q ${cx + 16} ${noseY + 24}, ${cx + 12} ${noseY + 10} Z`,
+    fill: "#cbd5e1", stroke: "#475569", "stroke-width": 0.8
   }, g);
 
-  // FWD / AFT direction labels
-  el("text", { x: noseX - 6, y: midY - 36, "text-anchor": "middle",
-    fill: "#0f172a", "font-size": "12", "font-weight": "700",
-    "font-family": "ui-monospace, Menlo, monospace"
-  }, g).textContent = "◄ FWD / NOSE";
-  el("text", { x: tailX + 4, y: midY - 36, "text-anchor": "middle",
-    fill: "#0f172a", "font-size": "12", "font-weight": "700",
-    "font-family": "ui-monospace, Menlo, monospace"
-  }, g).textContent = "AFT / TAIL ►";
+  // Vertical stabilizer (centerline triangle at tail end)
+  el("path", {
+    d: `M ${cx} ${tailY - 70} L ${cx - 14} ${tailY - 28} L ${cx + 14} ${tailY - 28} Z`,
+    fill: "#94a3b8", stroke: "#334155", "stroke-width": 0.8
+  }, g);
 
-  // Aircraft watermark
-  el("text", { x: (noseX + tailX) / 2, y: midY + 4, "text-anchor": "middle",
-    fill: "rgba(15,23,42,0.08)", "font-size": "48", "font-weight": "800",
-    "font-family": "ui-sans-serif"
+  // Direction labels
+  el("text", {
+    x: cx, y: noseY - 22, "text-anchor": "middle",
+    fill: "#0f172a", "font-size": 13, "font-weight": 700,
+    "font-family": "ui-monospace, Menlo, monospace"
+  }, g).textContent = "▲ FWD / NOSE";
+  el("text", {
+    x: cx, y: tailY + 30, "text-anchor": "middle",
+    fill: "#0f172a", "font-size": 13, "font-weight": 700,
+    "font-family": "ui-monospace, Menlo, monospace"
+  }, g).textContent = "AFT / TAIL ▼";
+
+  // Vertical watermark (rotated)
+  el("text", {
+    x: cx, y: (noseY + tailY) / 2, "text-anchor": "middle",
+    fill: "rgba(15,23,42,0.06)", "font-size": 70, "font-weight": 800,
+    "font-family": "ui-sans-serif",
+    transform: `rotate(-90 ${cx} ${(noseY + tailY) / 2})`
   }, g).textContent = CURRENT_AC;
-
-  // Stash the geometry so other layers can use it
-  window.__GEO = { noseX, tailX, usableW, top, bot, midY };
 }
 
 function renderZones() {
   const g = $("#layer-zones"); g.innerHTML = "";
   if (!$("#f-zone").checked) return;
+  // In focus mode the slice itself is the zone — no overlay needed.
+  if (FOCUSED_ZONE) return;
+  const cx = CENTER_X, halfW = FUS_HALF_W;
   zones.forEach(z => {
-    el("rect", {
-      x: xPct(z.x1), y: FUS_TOP + 4,
-      width: xPct(z.x2) - xPct(z.x1),
-      height: (FUS_BOT - FUS_TOP) - 8,
-      class: "zone-shape",
-      "data-zone": z.id
+    const y1 = posL(z.x1), y2 = posL(z.x2);
+    const rect = el("rect", {
+      x: cx - halfW + 4, y: y1,
+      width: 2 * halfW - 8, height: y2 - y1,
+      class: "zone-shape", "data-zone": z.id
     }, g);
-    el("text", {
-      x: (xPct(z.x1) + xPct(z.x2)) / 2,
-      y: FUS_TOP - 4,
-      "text-anchor": "middle",
+    const label = el("text", {
+      x: cx + halfW + 6, y: (y1 + y2) / 2 + 4,
       class: "zone-label"
-    }, g).textContent = z.id;
+    }, g);
+    label.textContent = z.id;
+    const handler = e => { e.stopPropagation(); zoomToZone(z); };
+    rect.addEventListener("click", handler);
+    label.addEventListener("click", handler);
   });
+}
+
+function zoomToZone(zone) {
+  // Enter true focus mode — the rest of the fuselage is removed from the
+  // map entirely (see renderFuselage / renderZones / renderSeats etc.).
+  FOCUSED_ZONE = zone;
+  // Bind the zone-pick filter so the Results list mirrors the focused view.
+  $("#zone-pick").value = zone.id;
+  // Re-render with focus mode active
+  renderAll();
+  // Frame the slice tightly with margins for frame & door labels
+  const y1 = posL(zone.x1), y2 = posL(zone.x2);
+  const padY = 50;
+  const cx = CENTER_X, halfW = FUS_HALF_W;
+  const left  = cx - halfW - 45;   // room for FR labels on the left
+  const right = cx + halfW + 110;  // room for DOOR labels on the right
+  const sliceTop    = y1 - padY;
+  const sliceBottom = y2 + padY;
+  const sliceW = right - left;
+  const sliceH = sliceBottom - sliceTop;
+  // Maintain container aspect — expand whichever dim is too tight
+  const aspect = (svg.clientWidth || VB_W) / (svg.clientHeight || VB_H);
+  if (sliceW / sliceH < aspect) {
+    const want = sliceH * aspect;
+    const grow = (want - sliceW) / 2;
+    view.x = left - grow;
+    view.w = want;
+  } else {
+    const want = sliceW / aspect;
+    const grow = (want - sliceH) / 2;
+    view.y = sliceTop - grow;
+    view.h = want;
+    view.x = left;
+    view.w = sliceW;
+  }
+  if (view.h == null) { view.y = sliceTop; view.h = sliceH; }
+  applyView();
+  applyFilters();
+  persistPrefs();
+}
+
+function exitZoneFocus() {
+  if (!FOCUSED_ZONE && !$("#zone-pick").value) return false;
+  FOCUSED_ZONE = null;
+  if ($("#zone-pick").value) $("#zone-pick").value = "";
+  view = { x: 0, y: 0, w: VB_W, h: VB_H };
+  renderAll();
+  applyView();
+  applyFilters();
+  persistPrefs();
+  return true;
 }
 
 function renderFrames() {
   const g = $("#layer-frames"); g.innerHTML = "";
   if (!$("#f-frame").checked) return;
-  frames.forEach(f => {
-    const x = xPct(f.x);
-    el("line", { x1: x, x2: x, y1: FUS_TOP, y2: FUS_BOT, class: "frame-line" }, g);
+  const cx = CENTER_X, halfW = FUS_HALF_W;
+  const relevant = FOCUSED_ZONE
+    ? frames.filter(f => f.x >= FOCUSED_ZONE.x1 - 0.5 && f.x <= FOCUSED_ZONE.x2 + 0.5)
+    : frames;
+  relevant.forEach(f => {
+    const y = posL(f.x);
+    el("line", { x1: cx - halfW, x2: cx + halfW, y1: y, y2: y, class: "frame-line" }, g);
     el("text", {
-      x: x, y: FUS_BOT + 14,
-      "text-anchor": "middle", class: "frame-label"
+      x: cx - halfW - 6, y: y + 3,
+      "text-anchor": "end", class: "frame-label"
     }, g).textContent = f.id;
   });
 }
 
 function renderDoors() {
   const g = $("#layer-doors"); g.innerHTML = "";
-  doors.forEach(d => {
-    const x = xPct(d.x);
-    el("line", { x1: x, x2: x, y1: FUS_TOP - 6, y2: FUS_TOP, class: "door-line" }, g);
-    el("line", { x1: x, x2: x, y1: FUS_BOT, y2: FUS_BOT + 6, class: "door-line" }, g);
+  const cx = CENTER_X, halfW = FUS_HALF_W;
+  const relevant = FOCUSED_ZONE
+    ? doors.filter(d => d.x >= FOCUSED_ZONE.x1 - 0.5 && d.x <= FOCUSED_ZONE.x2 + 0.5)
+    : doors;
+  relevant.forEach(d => {
+    const y = posL(d.x);
+    el("line", { x1: cx - halfW - 6, x2: cx - halfW, y1: y, y2: y, class: "door-line" }, g);
+    el("line", { x1: cx + halfW, x2: cx + halfW + 6, y1: y, y2: y, class: "door-line" }, g);
     el("text", {
-      x: x, y: FUS_TOP - 10,
-      "text-anchor": "middle", class: "door-label"
+      x: cx + halfW + 28, y: y + 3,
+      class: "door-label"
     }, g).textContent = d.id;
   });
 }
 
 function renderCargo() {
+  // Drawn as a slim "BELLY VIEW" bracket column to the LEFT of the fuselage,
+  // so it doesn't overlap cabin hotspots.
   const g = $("#layer-cargo"); g.innerHTML = "";
+  if (FOCUSED_ZONE) return;  // hide belly view in zone focus mode
   if (!$("#f-cargo").checked) return;
   const def = currentDef();
   if (!def.cargo || !def.cargo.length) return;
-  const top = FUS_TOP, bot = FUS_BOT;
-  // Cargo bay sits below main deck; in top-down view, overlay as dashed rects
-  // along the lower belly band (y just inside the fuselage bottom).
-  const ct = top + (bot - top) * 0.62;
-  const cb = top + (bot - top) * 0.95;
+  const cx = CENTER_X, halfW = FUS_HALF_W;
+  const colX = cx - halfW - 70;            // left column position
+  const colW = 50;
   def.cargo.forEach(c => {
-    const x1 = xPct(c.x1), x2 = xPct(c.x2);
+    const y1 = posL(c.x1), y2 = posL(c.x2);
     el("rect", {
-      x: x1, y: ct, width: x2 - x1, height: cb - ct,
-      class: "cargo-rect", "data-cargo": c.id
+      x: colX, y: y1, width: colW, height: y2 - y1,
+      fill: "rgba(148, 163, 184, 0.14)",
+      stroke: "#64748b", "stroke-width": 0.8, "stroke-dasharray": "4 3"
     }, g);
     el("text", {
-      x: (x1 + x2) / 2, y: ct + 14, "text-anchor": "middle", class: "cargo-label"
+      x: colX + colW / 2, y: (y1 + y2) / 2 - 4,
+      "text-anchor": "middle", class: "cargo-label"
     }, g).textContent = c.label;
     if (c.volume) {
       el("text", {
-        x: (x1 + x2) / 2, y: ct + 26, "text-anchor": "middle", class: "cargo-sub"
+        x: colX + colW / 2, y: (y1 + y2) / 2 + 8,
+        "text-anchor": "middle", class: "cargo-sub"
       }, g).textContent = c.volume;
     }
+    // Bracket connecting to fuselage
+    el("path", {
+      d: `M ${colX + colW} ${y1} L ${cx - halfW - 4} ${y1}
+          M ${colX + colW} ${y2} L ${cx - halfW - 4} ${y2}`,
+      class: "cargo-bracket"
+    }, g);
   });
+  // Header label
+  el("text", {
+    x: colX + colW / 2, y: posL(0) - 8,
+    "text-anchor": "middle", "font-size": 9, fill: "#475569", "font-weight": 700,
+    "font-family": "ui-monospace, Menlo, monospace"
+  }, g).textContent = "BELLY VIEW";
 }
 
 function renderSeats() {
   const g = $("#layer-seats"); g.innerHTML = "";
-  // Lightweight seat row hint stripes (decorative)
-  for (let i = 14; i < 94; i += 2) {
+  const lo = FOCUSED_ZONE ? Math.ceil(FOCUSED_ZONE.x1) : 14;
+  const hi = FOCUSED_ZONE ? Math.floor(FOCUSED_ZONE.x2) : 94;
+  for (let i = lo; i < hi; i += 2) {
+    const y = posL(i);
     el("rect", {
-      x: xPct(i) - 0.5, y: FUS_TOP + 12,
-      width: 1, height: FUS_BOT - FUS_TOP - 24,
+      x: CENTER_X - FUS_HALF_W + 6, y: y - 0.5,
+      width: 2 * FUS_HALF_W - 12, height: 1,
       fill: "#eef2f7"
     }, g);
   }
 }
 
+/* ---------- Hotspots + iterative spread ---------- */
 let SELECTED_ID = null;
-let FILTERED_IDS = null; // null = no filter; else Set of IDs
+let FILTERED_IDS = null;
+let FOCUSED_ZONE = null;  // when set, the map renders only this zone's slice
 
 const typeMeta = {
-  lavatory:  { cls: "lav", shape: "circle",   filter: "f-lav" },
-  galley:    { cls: "gal", shape: "rect",     filter: "f-gal" },
-  pelmet:    { cls: "pel", shape: "diamond",  filter: "f-pel" },
-  ceiling:   { cls: "cel", shape: "triangle", filter: "f-cel" },
-  partition: { cls: "par", shape: "vbar",     filter: "f-par" },
-  floor:     { cls: "flr", shape: "square",   filter: "f-flr" }
+  lavatory: { cls: "lav", shape: "circle", filter: "f-lav" },
+  galley:   { cls: "gal", shape: "rect",   filter: "f-gal" },
+  floor:    { cls: "flr", shape: "square", filter: "f-flr" }
 };
 function typeMetaOf(t) { return typeMeta[t] || { cls: "gal", shape: "rect", filter: "f-gal" }; }
 
+const TYPE_SHORT = { lavatory:"LAV", galley:"GAL", floor:"FLR" };
+
 function computeSpread(items) {
-  // For each item compute (drawX, drawY). If multiple items fall within OVERLAP_R
-  // of each other, fan them around the cluster center.
-  const OVERLAP_R = 14;   // svg units
-  const FAN_R     = 16;   // distance from cluster center
-  const pts = items.map(it => ({ it, cx: xPct(it.x), cy: yPct(it.y) }));
-  if (!$("#f-spread").checked) {
-    return pts.map(p => ({ it: p.it, ox: p.cx, oy: p.cy, dx: p.cx, dy: p.cy, fanned: false }));
-  }
-  // Greedy clustering
-  const clusters = [];
-  pts.forEach(p => {
-    const c = clusters.find(cl =>
-      cl.some(m => Math.hypot(m.cx - p.cx, m.cy - p.cy) < OVERLAP_R));
-    if (c) c.push(p); else clusters.push([p]);
+  // Iterative push-apart so even dense clusters (NF + QF + RF + SF at same
+  // position) become legible. Items beyond the threshold are not moved.
+  const pts = items.map(it => {
+    const p = itemPos(it);
+    return { it, ox: p.x, oy: p.y, dx: p.x, dy: p.y };
   });
-  const out = [];
-  clusters.forEach(cl => {
-    if (cl.length === 1) {
-      const p = cl[0];
-      out.push({ it: p.it, ox: p.cx, oy: p.cy, dx: p.cx, dy: p.cy, fanned: false });
-      return;
+  const MIN_DIST = 28;       // svg units, target minimum centre-to-centre gap
+  const ITERATIONS = 60;
+  const PUSH = 0.55;
+
+  for (let iter = 0; iter < ITERATIONS; iter++) {
+    let moved = false;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const a = pts[i], b = pts[j];
+        let dx = b.dx - a.dx, dy = b.dy - a.dy;
+        let d = Math.hypot(dx, dy);
+        if (d < MIN_DIST) {
+          if (d < 0.001) {
+            const ang = (i * 0.7 + j * 1.3) % (Math.PI * 2);
+            dx = Math.cos(ang); dy = Math.sin(ang); d = 1;
+          }
+          const overlap = MIN_DIST - d;
+          const push = (overlap / 2) * PUSH;
+          const nx = dx / d, ny = dy / d;
+          a.dx -= nx * push; a.dy -= ny * push;
+          b.dx += nx * push; b.dy += ny * push;
+          moved = true;
+        }
+      }
     }
-    const cx = cl.reduce((s, p) => s + p.cx, 0) / cl.length;
-    const cy = cl.reduce((s, p) => s + p.cy, 0) / cl.length;
-    const r  = FAN_R + Math.max(0, cl.length - 2) * 3;
-    cl.forEach((p, i) => {
-      const a = (Math.PI * 2 * i) / cl.length - Math.PI / 2;
-      out.push({
-        it: p.it,
-        ox: p.cx, oy: p.cy,
-        dx: cx + Math.cos(a) * r,
-        dy: cy + Math.sin(a) * r,
-        fanned: true
-      });
-    });
-  });
-  return out;
+    if (!moved) break;
+  }
+  return pts.map(p => ({
+    it: p.it, ox: p.ox, oy: p.oy, dx: p.dx, dy: p.dy,
+    fanned: Math.hypot(p.dx - p.ox, p.dy - p.oy) > 4
+  }));
 }
 
 function renderHotspots() {
   const g = $("#layer-hotspots"); g.innerHTML = "";
   const ld = $("#layer-leaders"); ld.innerHTML = "";
   const labels = $("#layer-labels"); labels.innerHTML = "";
-  const showCode = $("#f-code").checked;
   const showLabels = $("#f-labels").checked;
 
-  // Pre-filter by type visibility so spread only considers visible items
-  const visibleItems = cabinItems.filter(it => {
-    const meta = typeMetaOf(it.type);
-    const cb = $("#" + meta.filter);
-    return !cb || cb.checked;
-  });
-
-  const placements = computeSpread(visibleItems);
+  const visible = getVisibleItems();
+  const placements = computeSpread(visible);
 
   placements.forEach(({ it, ox, oy, dx, dy, fanned }) => {
     const meta = typeMetaOf(it.type);
     const cx = dx, cy = dy;
     const cls =
       "hotspot " + meta.cls +
-      (SELECTED_ID === it.id ? " selected" : "") +
-      (FILTERED_IDS && !FILTERED_IDS.has(it.id) ? " dim" : "");
+      (SELECTED_ID === it.id ? " selected" : "");
 
     if (fanned) {
-      // Leader from offset marker pointing back to true position; arrow lands on origin.
       el("line", {
         x1: cx, y1: cy, x2: ox, y2: oy,
         class: "leader", "marker-end": "url(#leader-arrow)"
       }, ld);
-      el("circle", { cx: ox, cy: oy, r: 2, fill: "#475569", stroke: "#fff", "stroke-width": "0.5" }, ld);
+      el("circle", { cx: ox, cy: oy, r: 2, fill: "#475569", stroke: "#fff", "stroke-width": 0.5 }, ld);
     }
 
     let node;
     switch (meta.shape) {
       case "circle":
-        node = el("circle", { cx, cy, r: 8, class: cls, "data-id": it.id }, g);
+        node = el("circle", { cx, cy, r: 7, class: cls, "data-id": it.id }, g);
         break;
       case "rect":
         node = el("rect", {
-          x: cx - 9, y: cy - 7, width: 18, height: 14, rx: 2, ry: 2,
+          x: cx - 8, y: cy - 6, width: 16, height: 12, rx: 2, ry: 2,
           class: cls, "data-id": it.id
         }, g);
         break;
       case "diamond":
         node = el("polygon", {
-          points: `${cx},${cy - 8} ${cx + 8},${cy} ${cx},${cy + 8} ${cx - 8},${cy}`,
+          points: `${cx},${cy - 7} ${cx + 7},${cy} ${cx},${cy + 7} ${cx - 7},${cy}`,
           class: cls, "data-id": it.id
         }, g);
         break;
       case "triangle":
         node = el("polygon", {
-          points: `${cx - 8},${cy - 6} ${cx + 8},${cy - 6} ${cx},${cy + 8}`,
+          points: `${cx - 7},${cy - 5} ${cx + 7},${cy - 5} ${cx},${cy + 7}`,
           class: cls, "data-id": it.id
         }, g);
         break;
-      case "vbar":
+      case "hbar":
         node = el("rect", {
-          x: cx - 3, y: cy - 12, width: 6, height: 24, rx: 1, ry: 1,
+          x: cx - 11, y: cy - 3, width: 22, height: 6, rx: 1, ry: 1,
           class: cls, "data-id": it.id
         }, g);
         break;
       case "square":
         node = el("rect", {
-          x: cx - 7, y: cy - 7, width: 14, height: 14, rx: 1, ry: 1,
+          x: cx - 6, y: cy - 6, width: 12, height: 12, rx: 1, ry: 1,
           class: cls, "data-id": it.id
         }, g);
         break;
       default:
         node = el("rect", {
-          x: cx - 9, y: cy - 7, width: 18, height: 14, rx: 2, ry: 2,
+          x: cx - 8, y: cy - 6, width: 16, height: 12, rx: 2, ry: 2,
           class: cls, "data-id": it.id
         }, g);
     }
-
-    node.addEventListener("click", () => selectItem(it.id));
+    node.addEventListener("click", e => { e.stopPropagation(); selectItem(it.id); });
     node.addEventListener("mouseenter", e => showTip(e, it));
     node.addEventListener("mousemove", moveTip);
     node.addEventListener("mouseleave", hideTip);
 
     if (showLabels) {
-      const lines = [];
-      lines.push(it.location);
-      if (showCode && it.code) lines.push(it.code);
-      lines.forEach((t, i) => {
-        el("text", {
-          x: cx, y: cy + 22 + i * 10,
-          "text-anchor": "middle", class: "hotspot-label"
-        }, labels).textContent = t;
-      });
+      // For floor panels, prefer the AMM code (e.g. "272EF") over the
+      // synthesised location ("L272E"). Other types use the location.
+      const primary = it.type === "floor"
+        ? (it.code || it.location)
+        : it.location;
+      el("text", {
+        x: cx, y: cy + 18,
+        "text-anchor": "middle", class: "hotspot-label"
+      }, labels).textContent = primary;
     }
   });
 }
 
-/* ---------- TOOLTIP ---------- */
+/* ---------- Tooltip ---------- */
 const tip = $("#tip");
 function showTip(e, it) {
   tip.innerHTML =
     `<b>${it.name}</b> ${it.location}<br>` +
-    `Zone: ${it.zone.join("/")}` +
+    `Zone: ${(it.zone || []).join("/")}` +
     (it.code ? `<br>Code: ${it.code}` : "");
   tip.classList.add("on");
   moveTip(e);
@@ -1189,44 +1263,41 @@ function moveTip(e) {
 }
 function hideTip() { tip.classList.remove("on"); }
 
-/* ---------- SELECT / DETAIL ---------- */
+/* ---------- Select / detail ---------- */
 function selectItem(id, opts) {
-  // Toggle off if the same item is clicked again
   if (SELECTED_ID === id) {
     SELECTED_ID = null;
-    renderHotspots();
-    renderDetail();
-    renderResults();
+    renderHotspots(); renderDetail(); renderResults();
+    persistPrefs();
     return;
   }
   SELECTED_ID = id;
   const it = cabinItems.find(x => x.id === id);
   if (it && (!opts || opts.pan !== false)) ensureVisible(it);
-  renderHotspots();
-  renderDetail();
-  renderResults(); // highlight in list
+  // Auto-open the detail drawer on selection
+  if (document.body.classList.contains("right-collapsed")) {
+    document.body.classList.remove("right-collapsed");
+  }
+  renderHotspots(); renderDetail(); renderResults();
+  persistPrefs();
 }
-
 function clearSelection() {
   if (!SELECTED_ID) return;
   SELECTED_ID = null;
-  renderHotspots();
-  renderDetail();
-  renderResults();
+  renderHotspots(); renderDetail(); renderResults();
+  persistPrefs();
 }
-
 function ensureVisible(it) {
-  const cx = xPct(it.x), cy = yPct(it.y);
-  const pad = 30;
-  const inside = cx >= view.x + pad && cx <= view.x + view.w - pad
-              && cy >= view.y + pad && cy <= view.y + view.h - pad;
+  const p = itemPos(it);
+  const pad = 60;
+  const inside = p.x >= view.x + pad && p.x <= view.x + view.w - pad
+              && p.y >= view.y + pad && p.y <= view.y + view.h - pad;
   if (!inside) {
-    // Zoom in a bit if currently fully zoomed out
     if (view.w >= VB_W * 0.95) {
-      view.w = VB_W * 0.55; view.h = VB_H * 0.55;
+      view.w = VB_W * 0.6; view.h = VB_H * 0.6;
     }
-    view.x = cx - view.w / 2;
-    view.y = cy - view.h / 2;
+    view.x = p.x - view.w / 2;
+    view.y = p.y - view.h / 2;
     applyView();
   }
 }
@@ -1252,7 +1323,7 @@ function renderDetail() {
       <dl class="kv">
         <dt>Aircraft</dt><dd>${CURRENT_AC}</dd>
         <dt>Location</dt><dd>${it.location}</dd>
-        <dt>Zone</dt><dd>${(it.zone||[]).join(" / ") || "—"}</dd>
+        <dt>Zone</dt><dd>${(it.zone || []).join(" / ") || "—"}</dd>
         <dt>Frame</dt><dd>${fr}</dd>
         <dt>Equipment</dt><dd>${it.code || "—"}</dd>
         <dt>Reference</dt><dd>${it.reference || "—"}</dd>
@@ -1285,7 +1356,6 @@ function renderDetail() {
   $("#note-clear").onclick = () => { $("#note").value = ""; saveNote(it.id, ""); };
   if (isCustom) $("#del-custom").onclick = () => deleteCustomItem(it.id);
 }
-
 function isCustomItem(id) {
   const all = loadCustom();
   return (all[CURRENT_AC] || []).some(x => x.id === id);
@@ -1297,30 +1367,18 @@ function deleteCustomItem(id) {
   saveCustom(all);
   cabinItems = currentItems();
   SELECTED_ID = null;
-  renderHotspots();
-  applyFilters();
-  renderDetail();
+  renderHotspots(); applyFilters(); renderDetail();
 }
-
 function flash(btn, msg) {
   const old = btn.textContent; btn.textContent = msg;
   setTimeout(() => btn.textContent = old, 900);
 }
 
-/* ---------- NOTES (localStorage) ---------- */
-const NOTE_KEY = "a330-cabin-notes-v1";
-function loadAllNotes() {
-  try { return JSON.parse(localStorage.getItem(NOTE_KEY) || "{}"); }
-  catch { return {}; }
-}
-function loadNote(id) { return loadAllNotes()[id] || ""; }
-function saveNote(id, v) {
-  const all = loadAllNotes();
-  if (v && v.trim()) all[id] = v; else delete all[id];
-  localStorage.setItem(NOTE_KEY, JSON.stringify(all));
-}
-
-/* ---------- SEARCH / FILTER ---------- */
+/* ---------- Search / filter ---------- */
+// Approximate (fuzzy-ish) match: every whitespace-separated token from the
+// query must appear in the haystack. Both sides are compared with hyphens
+// and spaces collapsed too, so "271 qf" / "271-qf" / "271qf" all match
+// "271QF" or "53-15-71Q".
 function matches(it, q) {
   q = q.trim().toLowerCase();
   if (!q) return true;
@@ -1328,23 +1386,35 @@ function matches(it, q) {
     it.id, it.name, it.location, it.code, it.reference,
     ...(it.zone || []),
     it.frames ? `${it.frames.from} ${it.frames.to}` : "",
-    it.type
+    it.type, TYPE_SHORT[it.type] || ""
   ].join(" ").toLowerCase();
-  return hay.includes(q);
+  const collapse = s => s.replace(/[\s\-_]/g, "");
+  const hayCol = collapse(hay);
+  const tokens = q.split(/\s+/).filter(Boolean);
+  return tokens.every(t => hay.includes(t) || hayCol.includes(collapse(t)));
+}
+function parseFrame(s) {
+  if (!s) return null;
+  const m = String(s).match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
 }
 
-function applyFilters() {
-  const q = $("#q").value;
+// Single source of truth for which items are currently visible.
+// When the search box is non-empty, the type filter is BYPASSED so the user
+// can find anything (e.g. a floor panel even when Floor Panels is unchecked).
+function getVisibleItems() {
+  const q = $("#q").value.trim();
   const zonePick = $("#zone-pick").value;
   const frFrom = parseFrame($("#fr-from").value);
   const frTo = parseFrame($("#fr-to").value);
-
-  const set = new Set();
-  const visible = cabinItems.filter(it => {
-    const meta = typeMetaOf(it.type);
-    const cb = $("#" + meta.filter);
-    if (cb && !cb.checked) return false;
-    if (!matches(it, q)) return false;
+  return cabinItems.filter(it => {
+    if (q) {
+      if (!matches(it, q)) return false;
+    } else {
+      const meta = typeMetaOf(it.type);
+      const cb = $("#" + meta.filter);
+      if (cb && !cb.checked) return false;
+    }
     if (zonePick && !(it.zone || []).includes(zonePick)) return false;
     if (frFrom != null || frTo != null) {
       if (!it.frames) return false;
@@ -1355,30 +1425,25 @@ function applyFilters() {
     }
     return true;
   });
-  visible.forEach(v => set.add(v.id));
-  FILTERED_IDS = (q || zonePick || frFrom != null || frTo != null) ? set : null;
+}
+
+function applyFilters() {
+  const visible = getVisibleItems();
+  FILTERED_IDS = null;  // we hide non-matching items now (no dim concept)
   renderHotspots();
-  renderResults(visible);
+  renderResults();
   if (document.body.classList.contains("hide-map")) buildMapListView();
-  // If the search narrowed to a single item, auto-locate it on the map
-  if (q && q.trim() && visible.length === 1 && visible[0].id !== SELECTED_ID) {
+  // If search narrowed to a single hit, auto-locate it on the map
+  const q = $("#q").value.trim();
+  if (q && visible.length === 1 && visible[0].id !== SELECTED_ID) {
     selectItem(visible[0].id);
   }
+  persistPrefs();
 }
 
-function parseFrame(s) {
-  if (!s) return null;
-  const m = String(s).match(/(\d+)/);
-  return m ? parseInt(m[1], 10) : null;
-}
-
-const TYPE_SHORT = { lavatory:"LAV", galley:"GAL", pelmet:"PEL", ceiling:"CEL", partition:"PAR", floor:"FLR" };
-
-function renderResults(list) {
+function renderResults() {
   const ul = $("#results");
-  const items = list || (FILTERED_IDS
-    ? cabinItems.filter(i => FILTERED_IDS.has(i.id))
-    : cabinItems);
+  const items = getVisibleItems();
   $("#count").textContent = items.length;
   ul.innerHTML = items.map(it => {
     const meta = typeMetaOf(it.type);
@@ -1396,25 +1461,21 @@ function renderResults(list) {
   });
 }
 
-/* ---------- ZOOM / PAN ---------- */
+/* ---------- Zoom / pan ---------- */
 let view = { x: 0, y: 0, w: VB_W, h: VB_H };
 function applyView() {
   svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
 }
 function zoom(factor, cx, cy) {
   const nw = view.w / factor, nh = view.h / factor;
-  if (nw < 80 || nw > VB_W * 2) return;
-  // zoom toward (cx, cy) in svg coords; if not provided, center
+  if (nw < 60 || nw > VB_W * 4) return;
   const px = cx != null ? cx : view.x + view.w / 2;
   const py = cy != null ? cy : view.y + view.h / 2;
   view.x = px - (px - view.x) * (nw / view.w);
   view.y = py - (py - view.y) * (nh / view.h);
   view.w = nw; view.h = nh;
-  applyView();
+  applyView(); persistPrefs();
 }
-$("#zoom-in").onclick  = () => zoom(1.25);
-$("#zoom-out").onclick = () => zoom(1/1.25);
-$("#zoom-reset").onclick = () => { view = { x:0, y:0, w:VB_W, h:VB_H }; applyView(); };
 
 // Wheel zoom (toward cursor)
 svg.addEventListener("wheel", e => {
@@ -1423,7 +1484,7 @@ svg.addEventListener("wheel", e => {
   zoom(e.deltaY < 0 ? 1.12 : 1/1.12, pt.x, pt.y);
 }, { passive: false });
 
-// Pan + pinch-zoom (multi-touch via Pointer Events)
+// Pointer-events based pan + pinch (works on Android touch)
 const pointers = new Map();
 let dragging = false, last = null, pinchData = null;
 
@@ -1445,7 +1506,6 @@ svg.addEventListener("pointerdown", e => {
     last = { x: e.clientX, y: e.clientY };
   }
 });
-
 svg.addEventListener("pointermove", e => {
   if (!pointers.has(e.pointerId)) return;
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1453,15 +1513,13 @@ svg.addEventListener("pointermove", e => {
     const [a, b] = [...pointers.values()];
     const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
     const factor = dist / pinchData.startDist;
-    const startW = pinchData.startView.w;
-    const startH = pinchData.startView.h;
-    let nw = startW / factor;
-    let nh = startH / factor;
-    nw = Math.max(80, Math.min(VB_W * 4, nw));
-    nh = Math.max(VB_H * 0.08, Math.min(VB_H * 4, nh));
+    let nw = pinchData.startView.w / factor;
+    let nh = pinchData.startView.h / factor;
+    nw = Math.max(60, Math.min(VB_W * 4, nw));
+    nh = Math.max(VB_H * 0.06, Math.min(VB_H * 4, nh));
     view.w = nw; view.h = nh;
-    view.x = pinchData.svgPt.x - (pinchData.svgPt.x - pinchData.startView.x) * (nw / startW);
-    view.y = pinchData.svgPt.y - (pinchData.svgPt.y - pinchData.startView.y) * (nh / startH);
+    view.x = pinchData.svgPt.x - (pinchData.svgPt.x - pinchData.startView.x) * (nw / pinchData.startView.w);
+    view.y = pinchData.svgPt.y - (pinchData.svgPt.y - pinchData.startView.y) * (nh / pinchData.startView.h);
     applyView();
   } else if (pointers.size === 1 && dragging) {
     const dx = (e.clientX - last.x) * (view.w / svg.clientWidth);
@@ -1471,11 +1529,10 @@ svg.addEventListener("pointermove", e => {
     applyView();
   }
 });
-
 function endPointer(e) {
   pointers.delete(e.pointerId);
   if (pointers.size < 2) pinchData = null;
-  if (pointers.size === 0) dragging = false;
+  if (pointers.size === 0) { dragging = false; persistPrefsDeb(); }
 }
 svg.addEventListener("pointerup", endPointer);
 svg.addEventListener("pointercancel", endPointer);
@@ -1489,17 +1546,18 @@ function svgPoint(clientX, clientY) {
   };
 }
 
-/* ---------- INIT ---------- */
-function initZonePicker() {
+/* ---------- Init helpers ---------- */
+function initZonePicker(keepValue) {
   const sel = $("#zone-pick");
+  const prev = keepValue != null ? keepValue : sel.value;
   sel.innerHTML = `<option value="">— All zones —</option>`;
   zones.forEach(z => {
     const o = document.createElement("option");
     o.value = z.id; o.textContent = z.id;
     sel.appendChild(o);
   });
+  sel.value = prev;
 }
-
 function renderAll() {
   renderFuselage();
   renderCargo();
@@ -1509,20 +1567,21 @@ function renderAll() {
   renderSeats();
   renderHotspots();
 }
-
-function switchAircraft(id) {
+function switchAircraft(id, resetView = true) {
   loadAircraft(id);
   SELECTED_ID = null;
   FILTERED_IDS = null;
-  // Reset zoom for clean view of the new silhouette
-  view = { x: 0, y: 0, w: VB_W, h: VB_H };
+  FOCUSED_ZONE = null;   // zones differ per aircraft; always exit focus
+  if (resetView) view = { x: 0, y: 0, w: VB_W, h: VB_H };
   applyView();
-  initZonePicker();
+  initZonePicker("");
   renderAll();
   applyFilters();
   renderDetail();
+  persistPrefs();
 }
 
+/* ---------- Add custom ---------- */
 function handleAddCustom() {
   const t  = $("#add-type").value;
   const nm = $("#add-name").value.trim();
@@ -1553,21 +1612,18 @@ function handleAddCustom() {
   if (!all[CURRENT_AC]) all[CURRENT_AC] = [];
   all[CURRENT_AC].push(item);
   saveCustom(all);
-  // Re-load items for current aircraft
   cabinItems = currentItems();
   renderHotspots();
   applyFilters();
   msg.textContent = `Eklendi: ${item.name} (${item.location}) → ${CURRENT_AC}`;
-  // Clear form
   ["add-name","add-loc","add-code","add-zone","add-fr-from","add-fr-to","add-ref","add-x","add-y"]
     .forEach(id => $("#"+id).value = "");
 }
 
-const TYPE_FILTER_IDS = ["f-lav","f-gal","f-pel","f-cel","f-par","f-flr"];
-
-// Single-button toggle: press once to select all and remember prior state;
-// press again to restore the saved selection.
+/* ---------- Type toggle ---------- */
+const TYPE_FILTER_IDS = ["f-lav","f-gal","f-flr"];
 let savedTypeFilters = null;
+
 function toggleAllTypes() {
   const btn = $("#sel-toggle");
   if (savedTypeFilters) {
@@ -1586,8 +1642,6 @@ function toggleAllTypes() {
   renderHotspots(); applyFilters();
 }
 function resetToggleStateIfManual() {
-  // Called whenever a type checkbox changes by user interaction so the
-  // toggle button cycle restarts cleanly.
   if (savedTypeFilters) {
     savedTypeFilters = null;
     const btn = $("#sel-toggle");
@@ -1595,14 +1649,9 @@ function resetToggleStateIfManual() {
   }
 }
 
+/* ---------- Print / hide-map list ---------- */
 function buildPrintArea() {
-  const items = (FILTERED_IDS
-    ? cabinItems.filter(i => FILTERED_IDS.has(i.id))
-    : cabinItems).filter(it => {
-      const meta = typeMetaOf(it.type);
-      const cb = $("#" + meta.filter);
-      return !cb || cb.checked;
-    });
+  const items = getVisibleItems();
   const rows = items.map(it => `
     <tr>
       <td>${TYPE_SHORT[it.type] || it.type}</td>
@@ -1625,57 +1674,10 @@ function buildPrintArea() {
     </table>
   `;
 }
-
-function handlePrint() {
-  buildPrintArea();
-  window.print();
-}
-
-function bindUI() {
-  // Type / overlay filters
-  [...TYPE_FILTER_IDS, "f-zone","f-cargo","f-frame","f-code","f-labels","f-spread"].forEach(id => {
-    const cb = $("#" + id);
-    if (!cb) return;
-    cb.addEventListener("change", () => {
-      if (TYPE_FILTER_IDS.includes(id)) resetToggleStateIfManual();
-      renderCargo(); renderZones(); renderFrames(); renderHotspots(); applyFilters();
-    });
-  });
-  $("#sel-toggle").addEventListener("click", toggleAllTypes);
-  // Escape clears the current selection from anywhere
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape") clearSelection();
-  });
-
-  $("#q").addEventListener("input", applyFilters);
-  $("#zone-pick").addEventListener("change", applyFilters);
-  $("#fr-apply").addEventListener("click", applyFilters);
-  $("#fr-clear").addEventListener("click", () => {
-    $("#fr-from").value = ""; $("#fr-to").value = ""; applyFilters();
-  });
-  $("#aircraft").addEventListener("change", e => switchAircraft(e.target.value));
-  $("#add-save").addEventListener("click", handleAddCustom);
-  $("#export-btn").addEventListener("click", handleExport);
-  $("#import-btn").addEventListener("click", () => $("#import-file").click());
-  $("#import-file").addEventListener("change", handleImport);
-
-  // Header buttons: print + hide map
-  $("#btn-print").addEventListener("click", handlePrint);
-  $("#btn-hide-map").addEventListener("click", () => {
-    const on = document.body.classList.toggle("hide-map");
-    $("#btn-hide-map").textContent = on ? "Show Map" : "Hide Map";
-    if (on) buildMapListView();
-  });
-}
+function handlePrint() { buildPrintArea(); window.print(); }
 
 function buildMapListView() {
-  const visible = (FILTERED_IDS
-    ? cabinItems.filter(i => FILTERED_IDS.has(i.id))
-    : cabinItems).filter(it => {
-      const meta = typeMetaOf(it.type);
-      const cb = $("#" + meta.filter);
-      return !cb || cb.checked;
-    });
+  const visible = getVisibleItems();
   const rows = visible.map(it => `
     <tr data-id="${it.id}">
       <td><span class="pill ${typeMetaOf(it.type).cls}" style="font-size:10px;padding:1px 6px">${TYPE_SHORT[it.type] || it.type.toUpperCase()}</span></td>
@@ -1687,8 +1689,8 @@ function buildMapListView() {
     </tr>
   `).join("");
   $("#map-list-view").innerHTML = `
-    <h2>${CURRENT_AC} — ${visible.length} item(s) shown</h2>
-    <div class="meta">Map hidden · Filters and search apply · Click a row to open details</div>
+    <h2>${CURRENT_AC} — ${visible.length} item(s)</h2>
+    <div class="meta">Map hidden · Filters and search apply · Click a row for details</div>
     <table>
       <thead><tr>
         <th>Type</th><th>Name / Loc</th><th>Zone</th><th>Frame</th><th>Code</th><th>Ref</th>
@@ -1701,6 +1703,7 @@ function buildMapListView() {
   });
 }
 
+/* ---------- Export / Import ---------- */
 function handleExport() {
   const payload = {
     aircraft: CURRENT_AC,
@@ -1717,7 +1720,6 @@ function handleExport() {
   URL.revokeObjectURL(url);
   $("#data-msg").textContent = `Exported ${payload.builtin.length} built-in + ${payload.custom.length} custom items.`;
 }
-
 function handleImport(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -1729,7 +1731,7 @@ function handleImport(e) {
         : Array.isArray(data.custom) ? data.custom
         : Array.isArray(data.items)  ? data.items
         : null;
-      if (!incoming) throw new Error("No array of items found (expected `custom` or `items` array, or top-level array).");
+      if (!incoming) throw new Error("Beklenen format: { aircraft, custom: [...] } veya { items: [...] } veya düz array.");
       const targetAc = data.aircraft && aircraftDefs[data.aircraft] ? data.aircraft : CURRENT_AC;
       const all = loadCustom();
       if (!all[targetAc]) all[targetAc] = [];
@@ -1754,13 +1756,175 @@ function handleImport(e) {
   reader.readAsText(file);
 }
 
+/* ---------- Preferences (persisted UI state) ---------- */
+const ALL_FILTER_IDS = [
+  ...TYPE_FILTER_IDS,
+  "f-zone","f-cargo","f-frame","f-labels"
+];
+let _saveTimer = null;
+function persistPrefsDeb() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(persistPrefs, 200);
+}
+function persistPrefs() {
+  const filters = {};
+  ALL_FILTER_IDS.forEach(id => {
+    const cb = $("#" + id);
+    if (cb) filters[id] = cb.checked;
+  });
+  const prefs = {
+    aircraft: CURRENT_AC,
+    filters,
+    zonePick: $("#zone-pick").value,
+    frFrom: $("#fr-from").value,
+    frTo: $("#fr-to").value,
+    search: $("#q").value,
+    hideMap: document.body.classList.contains("hide-map"),
+    leftCollapsed: document.body.classList.contains("left-collapsed"),
+    rightCollapsed: document.body.classList.contains("right-collapsed"),
+    savedTypeFilters,
+    view: { x: view.x, y: view.y, w: view.w, h: view.h },
+    selectedId: SELECTED_ID,
+    focusedZoneId: FOCUSED_ZONE ? FOCUSED_ZONE.id : null
+  };
+  savePrefs(prefs);
+}
+function applyPrefs(p) {
+  if (!p || typeof p !== "object") return;
+  if (p.aircraft && aircraftDefs[p.aircraft]) {
+    CURRENT_AC = p.aircraft;
+    $("#aircraft").value = p.aircraft;
+  }
+  if (p.filters && typeof p.filters === "object") {
+    Object.entries(p.filters).forEach(([id, v]) => {
+      const cb = $("#" + id);
+      if (cb) cb.checked = !!v;
+    });
+  }
+  if (typeof p.zonePick === "string") $("#zone-pick").value = p.zonePick;
+  if (typeof p.frFrom === "string")   $("#fr-from").value   = p.frFrom;
+  if (typeof p.frTo   === "string")   $("#fr-to").value     = p.frTo;
+  if (typeof p.search === "string")   $("#q").value         = p.search;
+  if (p.hideMap)        document.body.classList.add("hide-map");
+  if (p.leftCollapsed)  document.body.classList.add("left-collapsed");
+  if (p.rightCollapsed) document.body.classList.add("right-collapsed");
+  if (p.savedTypeFilters) {
+    savedTypeFilters = p.savedTypeFilters;
+    $("#sel-toggle").textContent = "Restore previous";
+  }
+  if (p.view && typeof p.view.x === "number") view = { ...p.view };
+  if (p.selectedId) SELECTED_ID = p.selectedId;
+  if (p.hideMap) $("#btn-hide-map").textContent = "Show Map";
+  if (p.focusedZoneId) {
+    const z = zones.find(zz => zz.id === p.focusedZoneId);
+    if (z) FOCUSED_ZONE = z;
+  }
+}
+function resetAllPrefs() {
+  if (!confirm("Tüm tercihler ve custom item'lar silinsin mi? (Notlar dahil)")) return;
+  localStorage.removeItem(PREFS_KEY);
+  localStorage.removeItem(CUSTOM_KEY);
+  localStorage.removeItem(NOTE_KEY);
+  location.reload();
+}
+
+/* ---------- Bind UI ---------- */
+function bindUI() {
+  // Type / overlay filters
+  ALL_FILTER_IDS.forEach(id => {
+    const cb = $("#" + id);
+    if (!cb) return;
+    cb.addEventListener("change", () => {
+      if (TYPE_FILTER_IDS.includes(id)) resetToggleStateIfManual();
+      renderCargo(); renderZones(); renderFrames(); renderHotspots(); applyFilters();
+      persistPrefs();
+    });
+  });
+  $("#sel-toggle").addEventListener("click", () => { toggleAllTypes(); persistPrefs(); });
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    // Priority: clear selection → exit focus → no-op
+    if (SELECTED_ID) { clearSelection(); return; }
+    exitZoneFocus();
+  });
+
+  $("#q").addEventListener("input", applyFilters);
+  $("#zone-pick").addEventListener("change", e => {
+    // If we're in focus mode, syncing the dropdown should switch / exit focus
+    const v = e.target.value;
+    if (FOCUSED_ZONE) {
+      if (!v) { exitZoneFocus(); return; }
+      const z = zones.find(zz => zz.id === v);
+      if (z && z.id !== FOCUSED_ZONE.id) { zoomToZone(z); return; }
+    }
+    applyFilters();
+  });
+  $("#fr-from").addEventListener("input", persistPrefsDeb);
+  $("#fr-to").addEventListener("input", persistPrefsDeb);
+  $("#fr-apply").addEventListener("click", () => { applyFilters(); persistPrefs(); });
+  $("#fr-clear").addEventListener("click", () => {
+    $("#fr-from").value = ""; $("#fr-to").value = ""; applyFilters();
+  });
+  $("#aircraft").addEventListener("change", e => switchAircraft(e.target.value));
+  $("#add-save").addEventListener("click", handleAddCustom);
+  $("#export-btn").addEventListener("click", handleExport);
+  $("#import-btn").addEventListener("click", () => $("#import-file").click());
+  $("#import-file").addEventListener("change", handleImport);
+  $("#reset-prefs").addEventListener("click", resetAllPrefs);
+
+  $("#btn-print").addEventListener("click", handlePrint);
+  $("#btn-hide-map").addEventListener("click", () => {
+    const on = document.body.classList.toggle("hide-map");
+    $("#btn-hide-map").textContent = on ? "Show Map" : "Hide Map";
+    if (on) buildMapListView();
+    persistPrefs();
+  });
+
+  // Drawer toggles
+  $("#toggle-left").addEventListener("click", () => {
+    document.body.classList.toggle("left-collapsed");
+    persistPrefs();
+  });
+  $("#toggle-right").addEventListener("click", () => {
+    document.body.classList.toggle("right-collapsed");
+    persistPrefs();
+  });
+
+  // Zoom buttons
+  $("#zoom-in").onclick    = () => zoom(1.25);
+  $("#zoom-out").onclick   = () => zoom(1/1.25);
+  $("#zoom-reset").onclick = () => {
+    // If we're in zone focus, exit it; otherwise just reset zoom/pan
+    if (!exitZoneFocus()) {
+      view = { x:0, y:0, w:VB_W, h:VB_H };
+      applyView();
+      persistPrefs();
+    }
+  };
+}
+
+/* ---------- Init ---------- */
 function init() {
-  loadAircraft("A330-300");
-  renderAll();
-  initZonePicker();
+  const prefs = loadPrefs();
+  // Apply aircraft first so default data loads correctly
+  if (prefs.aircraft && aircraftDefs[prefs.aircraft]) {
+    CURRENT_AC = prefs.aircraft;
+  }
+  loadAircraft(CURRENT_AC);
+  // Apply prefs (sets DOM inputs + classes; needs DOM bound)
   bindUI();
-  applyFilters();
+  applyPrefs(prefs);
+  // Default to collapsed drawers on small screens if no prior pref
+  if (!prefs.leftCollapsed && !prefs.rightCollapsed && window.matchMedia("(max-width: 768px)").matches) {
+    document.body.classList.add("left-collapsed");
+    document.body.classList.add("right-collapsed");
+  }
+  initZonePicker();
+  if (prefs.zonePick) $("#zone-pick").value = prefs.zonePick;
+  renderAll();
   applyView();
+  applyFilters();
+  renderDetail();
 }
 init();
 </script>
