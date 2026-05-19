@@ -220,6 +220,24 @@
   body.hide-map .map-list-view { display: block; }
   body.hide-map .map-wrap { background: #f8fafc; }
 
+  /* Zone focus exit banner — only shown while a zone is focused */
+  .focus-banner {
+    position: absolute;
+    top: 8px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    background: var(--accent); color: #1f2937;
+    border: none; border-radius: 999px;
+    padding: 8px 18px;
+    font: 700 13px ui-sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(232, 121, 249, 0.5);
+    align-items: center; gap: 6px;
+    display: none;
+  }
+  body.in-focus .focus-banner { display: inline-flex; }
+  .focus-banner:hover { filter: brightness(1.08); }
+
   .legend {
     position: absolute; left: 12px; top: 8px;
     background: rgba(255,255,255,0.95); color: #0f172a;
@@ -445,6 +463,10 @@
         <span><span class="sw cargo"></span>Cabin</span>
       </div>
       <div class="tip" id="tip"></div>
+      <button class="focus-banner" id="focus-banner" type="button">
+        <span style="font-size:14px">←</span>
+        <span id="focus-banner-text">Tam görünüme dön</span>
+      </button>
       <div class="map-list-view" id="map-list-view"></div>
       <div class="print-only" id="print-area" style="padding:14px"></div>
     </div>
@@ -977,6 +999,9 @@ function zoomToZone(zone) {
   // Enter true focus mode — the rest of the fuselage is removed from the
   // map entirely (see renderFuselage / renderZones / renderSeats etc.).
   FOCUSED_ZONE = zone;
+  document.body.classList.add("in-focus");
+  const txt = $("#focus-banner-text");
+  if (txt) txt.textContent = `← Tam görünüme dön  ·  Zone ${zone.id}`;
   // Bind the zone-pick filter so the Results list mirrors the focused view.
   $("#zone-pick").value = zone.id;
   // Re-render with focus mode active
@@ -1018,6 +1043,7 @@ function zoomToZone(zone) {
 function exitZoneFocus() {
   if (!FOCUSED_ZONE && !$("#zone-pick").value) return false;
   FOCUSED_ZONE = null;
+  document.body.classList.remove("in-focus");
   if ($("#zone-pick").value) $("#zone-pick").value = "";
   view = { x: 0, y: 0, w: VB_W, h: VB_H };
   renderAll();
@@ -1889,6 +1915,9 @@ function bindUI() {
     if (on) buildMapListView();
     persistPrefs();
   });
+
+  // Zone focus exit banner
+  $("#focus-banner").addEventListener("click", exitZoneFocus);
 
   // Drawer toggles
   $("#toggle-left").addEventListener("click", () => {
