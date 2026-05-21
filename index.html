@@ -237,6 +237,114 @@
   body.hide-map .map-list-view { display: block; }
   body.hide-map .map-wrap { background: #f8fafc; }
 
+  /* ===== AMM-style panel grid (shown when a zone is focused) ===== */
+  .panel-grid-view {
+    display: none;
+    position: absolute; inset: 0;
+    background: #f8fafc;
+    padding: 60px 24px 24px;
+    overflow: auto;
+    color: #0f172a;
+  }
+  body.in-focus svg.cabin { display: none; }
+  body.in-focus .map-wrap .legend { display: none; }
+  body.in-focus .panel-grid-view { display: block; }
+
+  .panel-grid-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 14px; margin-bottom: 18px;
+    border-bottom: 2px solid #1e293b;
+  }
+  .panel-grid-header .fwd {
+    font: 800 16px ui-monospace, Menlo, monospace;
+    color: #2563eb;
+  }
+  .panel-grid-header .title {
+    font: 800 18px ui-sans-serif;
+    color: #0f172a;
+  }
+  .panel-grid-header .frame-range {
+    font: 600 12px ui-monospace, Menlo, monospace;
+    color: #475569;
+  }
+
+  .panel-side {
+    margin-bottom: 24px;
+  }
+  .panel-side-title {
+    font: 800 13px ui-monospace, Menlo, monospace;
+    color: #475569;
+    padding: 4px 0 8px;
+    border-bottom: 1px dashed #cbd5e1;
+    margin-bottom: 10px;
+  }
+  .panel-row {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 3px;
+    align-items: stretch;
+  }
+  .panel-row-label {
+    flex: 0 0 auto;
+    min-width: 50px;
+    display: flex; align-items: center; justify-content: center;
+    font: 700 11px ui-monospace, Menlo, monospace;
+    color: #64748b;
+    background: #e2e8f0;
+    border-radius: 3px;
+    padding: 4px 8px;
+  }
+  .panel-row-cells {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 3px;
+    flex: 1 1 auto;
+  }
+  .panel-cell {
+    background: linear-gradient(180deg, #cfe9fa 0%, #b9dff6 100%);
+    border: 1px solid #1e40af;
+    border-radius: 3px;
+    padding: 14px 4px;
+    text-align: center;
+    cursor: pointer;
+    font: 700 12px ui-monospace, Menlo, monospace;
+    color: #0c1b3a;
+    user-select: none;
+    transition: transform 120ms, box-shadow 120ms;
+    line-height: 1.1;
+    min-height: 44px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .panel-cell:hover {
+    transform: scale(1.06);
+    box-shadow: 0 2px 8px rgba(30, 64, 175, 0.4);
+    z-index: 1;
+  }
+  .panel-cell.selected {
+    background: linear-gradient(180deg, #f5d0fe 0%, #e879f9 100%);
+    border: 2px solid #a21caf;
+    color: #4a044e;
+    transform: scale(1.05);
+  }
+  .panel-grid-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #64748b;
+    font: 14px ui-sans-serif;
+    background: #fff;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+  }
+  .panel-grid-info {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: #fef9c3;
+    border: 1px solid #facc15;
+    border-radius: 6px;
+    font: 12px ui-sans-serif;
+    color: #713f12;
+  }
+
   /* Zone focus exit banner — only shown while a zone is focused */
   .focus-banner {
     position: absolute;
@@ -487,6 +595,7 @@
         <span style="font-size:14px">←</span>
         <span id="focus-banner-text">Tam görünüme dön</span>
       </button>
+      <div class="panel-grid-view" id="panel-grid"></div>
       <div class="map-list-view" id="map-list-view"></div>
       <div class="print-only" id="print-area" style="padding:14px"></div>
     </div>
@@ -1291,10 +1400,11 @@ function renderHotspots() {
         }, g);
     }
     // Click is handled via SVG-level delegation below (more reliable when
-    // pointer capture is engaged for pan/pinch).
-    node.addEventListener("mouseenter", e => showTip(e, it));
-    node.addEventListener("mousemove", moveTip);
-    node.addEventListener("mouseleave", hideTip);
+    // pointer capture is engaged for pan/pinch). Hover preview is pointer-
+    // events-only so touch never gets a stuck tooltip.
+    node.addEventListener("pointerenter", e => showTip(e, it));
+    node.addEventListener("pointermove", moveTip);
+    node.addEventListener("pointerleave", hideTip);
 
     if (showLabels) {
       // For floor panels, prefer the AMM code (e.g. "272EF") over the
@@ -1310,28 +1420,54 @@ function renderHotspots() {
   });
 }
 
-/* ---------- Tooltip ---------- */
+/* ---------- Tooltip ----------
+   Tooltip is desktop-hover only. On touch devices it is never shown
+   (touch has no "hover" — and we can't rely on a leave event to dismiss
+   it). A safety timer auto-hides it after a short delay in any case.
+*/
 const tip = $("#tip");
+let _tipTimer = null;
+function isTouchEvent(e) {
+  // Pointer events expose pointerType directly. Older mouse events don't.
+  return e && e.pointerType && e.pointerType !== "mouse";
+}
 function showTip(e, it) {
+  if (isTouchEvent(e)) return;
+  clearTimeout(_tipTimer);
   tip.innerHTML =
-    `<b>${it.name}</b> ${it.location}<br>` +
+    `<b>${it.name}</b> ${it.location || ""}<br>` +
     `Zone: ${(it.zone || []).join("/")}` +
     (it.code ? `<br>Code: ${it.code}` : "");
   tip.classList.add("on");
   moveTip(e);
+  _tipTimer = setTimeout(hideTip, 3500);
 }
 function moveTip(e) {
+  if (isTouchEvent(e)) return;
   const rect = $(".map-wrap").getBoundingClientRect();
   tip.style.left = (e.clientX - rect.left) + "px";
   tip.style.top  = (e.clientY - rect.top)  + "px";
 }
-function hideTip() { tip.classList.remove("on"); }
+function hideTip() {
+  tip.classList.remove("on");
+  clearTimeout(_tipTimer);
+}
 
 /* ---------- Select / detail ---------- */
+function syncPanelGridSelection() {
+  const grid = $("#panel-grid");
+  if (!grid) return;
+  grid.querySelectorAll(".panel-cell").forEach(cell => {
+    cell.classList.toggle("selected", cell.dataset.id === SELECTED_ID);
+  });
+}
+
 function selectItem(id, opts) {
+  hideTip();  // any selection dismisses the tooltip (important for touch)
   if (SELECTED_ID === id) {
     SELECTED_ID = null;
     renderHotspots(); renderDetail(); renderResults();
+    syncPanelGridSelection();
     persistPrefs();
     return;
   }
@@ -1343,27 +1479,45 @@ function selectItem(id, opts) {
     document.body.classList.remove("right-collapsed");
   }
   renderHotspots(); renderDetail(); renderResults();
+  syncPanelGridSelection();
   persistPrefs();
 }
 function clearSelection() {
   if (!SELECTED_ID) return;
   SELECTED_ID = null;
+  hideTip();
   renderHotspots(); renderDetail(); renderResults();
+  syncPanelGridSelection();
   persistPrefs();
 }
 function ensureVisible(it) {
   const p = itemPos(it);
-  const pad = 60;
-  const inside = p.x >= view.x + pad && p.x <= view.x + view.w - pad
-              && p.y >= view.y + pad && p.y <= view.y + view.h - pad;
-  if (!inside) {
-    if (view.w >= VB_W * 0.95) {
-      view.w = VB_W * 0.6; view.h = VB_H * 0.6;
-    }
-    view.x = p.x - view.w / 2;
-    view.y = p.y - view.h / 2;
-    applyView();
+
+  // The drawers overlay the map; we need to pan the item INTO the part of
+  // the container that's actually visible (not behind a drawer). Compute
+  // the visible fraction of the container along x.
+  const cw = svg.clientWidth || VB_W;
+  const drawerPx = parseFloat(getComputedStyle(document.documentElement)
+    .getPropertyValue("--drawer-w")) || 300;
+  const drawerFrac = Math.min(0.9, drawerPx / cw);
+  const leftOpen  = !document.body.classList.contains("left-collapsed");
+  const rightOpen = !document.body.classList.contains("right-collapsed");
+  const leftEdge  = leftOpen  ? drawerFrac : 0;
+  const rightEdge = rightOpen ? 1 - drawerFrac : 1;
+  // If both drawers cover the whole map (mobile w/ both open), fall back
+  // to the centre so at least something visible changes.
+  const visFracMid = (leftEdge >= rightEdge)
+    ? 0.5
+    : (leftEdge + rightEdge) / 2;
+
+  // Zoom in a bit if currently fully zoomed out
+  if (view.w >= VB_W * 0.95) {
+    view.w = VB_W * 0.6; view.h = VB_H * 0.6;
   }
+  // Pan so the item lands in the centre of the visible (unobscured) area
+  view.x = p.x - view.w * visFracMid;
+  view.y = p.y - view.h * 0.5;
+  applyView();
 }
 
 function renderDetail() {
@@ -1630,6 +1784,132 @@ function renderAll() {
   renderDoors();
   renderSeats();
   renderHotspots();
+  renderPanelGrid();
+}
+
+/* ---------- Panel grid (focus mode AMM-style view) ----------
+   In zone focus the SVG is hidden (CSS) and an HTML grid takes its place,
+   showing floor panels as labeled rectangles like the AMM 06-41-53 figures.
+*/
+function renderPanelGrid() {
+  const grid = $("#panel-grid");
+  if (!grid) return;
+  if (!FOCUSED_ZONE) { grid.innerHTML = ""; return; }
+  const zone = FOCUSED_ZONE;
+
+  // All floor panels assigned to this cabin zone
+  const allPanels = cabinItems.filter(it =>
+    it.type === "floor" && (it.zone || []).includes(zone.id) && it.code
+  );
+
+  // Sub-group by panel sub-zone (3-digit prefix like 271 / 272)
+  const bySubZone = {};
+  allPanels.forEach(p => {
+    const sub = p.code.slice(0, 3);
+    (bySubZone[sub] ||= []).push(p);
+  });
+  const subZoneIds = Object.keys(bySubZone).sort();
+
+  // Also surface non-floor items in this zone (lavatories, galleys) at the top
+  const otherItems = cabinItems.filter(it =>
+    it.type !== "floor" && (it.zone || []).includes(zone.id)
+  );
+
+  const frameRange = (() => {
+    const all = currentDef().frames || [];
+    let f0 = null, f1 = null;
+    all.forEach(f => {
+      if (f.x >= zone.x1 - 0.5 && f.x <= zone.x2 + 0.5) {
+        if (!f0) f0 = f;
+        f1 = f;
+      }
+    });
+    return (f0 && f1) ? `${f0.id} — ${f1.id}` : "";
+  })();
+
+  if (!subZoneIds.length && !otherItems.length) {
+    grid.innerHTML = `
+      <div class="panel-grid-header">
+        <span class="fwd">◄ FWD</span>
+        <span class="title">${CURRENT_AC} · Zone ${zone.id}</span>
+        <span class="frame-range">${frameRange}</span>
+        <span class="fwd">AFT ►</span>
+      </div>
+      <div class="panel-grid-empty">
+        Bu zone için kayıtlı floor panel veya kabin objesi yok.
+      </div>`;
+    return;
+  }
+
+  const ROW_ORDER = ["F", "G", "H"];
+  const ROW_LABELS = { F: "F-row (port)", G: "G-row (center)", H: "H-row (starboard)" };
+
+  function renderSubZone(sub) {
+    const panels = bySubZone[sub];
+    const meta = (typeof FLOOR_ZONES_A330 !== "undefined")
+      ? FLOOR_ZONES_A330.find(z => z.zone === sub) : null;
+    const sideLabel = meta
+      ? `Sub-zone ${sub} · ${meta.side === "port" ? "PORT (L)" : "STARBOARD (R)"} · ${panels.length} panel`
+      : `Sub-zone ${sub} · ${panels.length} panel`;
+    const byRow = { F: [], G: [], H: [] };
+    panels.forEach(p => {
+      const row = p.code.slice(-1);
+      if (byRow[row]) byRow[row].push(p);
+    });
+    Object.values(byRow).forEach(arr =>
+      arr.sort((a, b) => a.code.localeCompare(b.code))
+    );
+    const rows = ROW_ORDER.map(row => {
+      if (!byRow[row].length) return "";
+      const cells = byRow[row].map(p => `
+        <button class="panel-cell ${SELECTED_ID === p.id ? "selected" : ""}"
+                data-id="${p.id}" type="button" title="${p.code} · ${p.location || ""}">${p.code}</button>
+      `).join("");
+      return `
+        <div class="panel-row">
+          <div class="panel-row-label">${ROW_LABELS[row] || row}</div>
+          <div class="panel-row-cells">${cells}</div>
+        </div>`;
+    }).join("");
+    return `
+      <div class="panel-side">
+        <div class="panel-side-title">${sideLabel}</div>
+        ${rows}
+      </div>`;
+  }
+
+  const otherHtml = otherItems.length ? `
+    <div class="panel-side">
+      <div class="panel-side-title">Other items in ${zone.id}</div>
+      <div class="panel-row">
+        <div class="panel-row-cells" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+          ${otherItems.map(it => `
+            <button class="panel-cell ${SELECTED_ID === it.id ? "selected" : ""}"
+                    data-id="${it.id}" type="button"
+                    style="background:linear-gradient(180deg,#fde68a 0%,#fbbf24 100%);border-color:#92400e">
+              ${it.name}<br><span style="font-weight:400;font-size:10px">${it.location || ""}</span>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    </div>` : "";
+
+  grid.innerHTML = `
+    <div class="panel-grid-header">
+      <span class="fwd">◄ FWD</span>
+      <span class="title">${CURRENT_AC} · Zone ${zone.id}</span>
+      <span class="frame-range">${frameRange}</span>
+      <span class="fwd">AFT ►</span>
+    </div>
+    ${otherHtml}
+    ${subZoneIds.map(renderSubZone).join("")}
+    <div class="panel-grid-info">
+      AMM 06-41-53 figürlerinin şematik karşılığı. Kesin panel boyutları/yerleşimi her uçak (MSN) için AMM'den teyit edilmelidir. Bir hücreye tıklayınca detay panelinde tam bilgi açılır.
+    </div>`;
+
+  grid.querySelectorAll(".panel-cell").forEach(cell => {
+    cell.addEventListener("click", () => selectItem(cell.dataset.id, { pan: false }));
+  });
 }
 function switchAircraft(id, resetView = true) {
   loadAircraft(id);
